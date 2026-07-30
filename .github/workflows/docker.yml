@@ -34,7 +34,6 @@ jobs:
       push: ${{ steps.resolve.outputs.push }}
       ghcr_image: ${{ steps.resolve.outputs.ghcr_image }}
       dockerhub_image: ${{ steps.resolve.outputs.dockerhub_image }}
-      images: ${{ steps.resolve.outputs.images }}
     steps:
       - name: Resolve push targets
         id: resolve
@@ -68,20 +67,15 @@ jobs:
                  "and DOCKERHUB_TOKEN secrets to enable it."
           fi
 
-          images="${ghcr_image}"
-          if [[ -n "${dockerhub_image}" ]]; then
-            images="${images},${dockerhub_image}"
-          fi
-
           {
             echo "push=${push}"
             echo "ghcr_image=${ghcr_image}"
             echo "dockerhub_image=${dockerhub_image}"
-            echo "images=${images}"
           } >> "$GITHUB_OUTPUT"
 
           echo "Push: ${push}"
-          echo "Images: ${images}"
+          echo "GHCR: ${ghcr_image}"
+          echo "Docker Hub: ${dockerhub_image:-(not configured)}"
 
   # Each architecture is built on a runner of that architecture. Emulating arm64
   # under QEMU turns a ~3 minute Rust build into a ~40 minute one, so native
@@ -119,23 +113,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        if: needs.config.outputs.push == 'true' && needs.config.outputs.dockerhub_image != ''
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ needs.config.outputs.images }}
+          images: ${{ needs.config.outputs.ghcr_image }}
           tags: ${{ env.TAG_RULES }}
 
-      # Pushing by digest rather than by tag lets the merge job below assemble one
-      # manifest list from both architectures. The digest is content-addressed, so
-      # the same digest lands in every registry we pushed to.
+      # Digests go to GHCR only, and the merge job fans them out to Docker Hub.
+      # Naming both registries here would put a comma inside the exporter's
+      # `name=` field, which breaks buildx's CSV parsing and fails the build with
+      # "tag is needed when pushing to registry".
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
@@ -146,7 +134,7 @@ jobs:
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-          outputs: type=image,"name=${{ needs.config.outputs.images }}",push-by-digest=true,name-canonical=true,push=${{ needs.config.outputs.push }}
+          outputs: type=image,name=${{ needs.config.outputs.ghcr_image }},push-by-digest=true,name-canonical=true,push=${{ needs.config.outputs.push }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
@@ -231,7 +219,7 @@ jobs:
           # shellcheck disable=SC2046 # word splitting is the point: one -t per tag
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta-dockerhub.outputs.json }}') \
-            $(printf '${{ needs.config.outputs.dockerhub_image }}@sha256:%s ' *)
+            $(printf '${{ needs.config.outputs.ghcr_image }}@sha256:%s ' *)
 
       - name: Inspect the published image
         run: |

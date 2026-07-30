@@ -56,7 +56,7 @@ docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest
   consistent; please keep it that way.
 - **Comments explain *why*, not *what*.** The existing ones flag non-obvious
   constraints: why overrides live in separate columns, why bind parameters are
-  chunked, why Turso was rejected. Aim for that.
+  chunked, why unrecognised API paths answer with JSON. Aim for that.
 - **Keep SQL inside `store::sqlite`.** Everything above it goes through the `Store`
   trait. If you need a new query, add a trait method.
 - **Dynamic SQL needs justification.** sqlx 0.9 requires `AssertSqlSafe` for

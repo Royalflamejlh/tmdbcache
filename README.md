@@ -158,15 +158,6 @@ boot.
 
 </details>
 
-### What's missing
-
-The original could sync from Emby, push metrics to InfluxDB, and sit behind Keycloak.
-None of that is implemented. Those variables are still parsed and logged as a warning
-at startup, so a configured deployment gets told rather than silently ignored.
-
-There's no MySQL backend either, only SQLite. `werStreamtEsId` is stored and returned
-but nothing uses it.
-
 ## API
 
 Everything lives under `/api/v1`.
@@ -218,12 +209,12 @@ curl -X PATCH localhost:8081/api/v1/movie/603 \
   -H 'content-type: application/json' -d '{"poster_path":"/mine.jpg"}'
 ```
 
-## How it's put together
+## Layout
 
 ```
 src/
   api/       axum handlers, one route per path in the OpenAPI document
-  service/   the get-or-fetch layer; the only code that decides store vs TMDB
+  service/   the get-or-fetch layer between the handlers and the store or TMDB
   store/     Store trait plus the SQLite implementation
   tmdb/      TMDB v3 client and response types
   model/     wire types
@@ -232,21 +223,13 @@ docker/root/ s6 service definitions and init scripts
 migrations/  schema, applied at startup
 ```
 
-All SQL is confined to `store::sqlite` behind a `Store` trait, so moving to another
-engine means writing a second implementation and repointing one type alias.
+All SQL lives in `store::sqlite`, behind a `Store` trait. SQLite runs in WAL mode.
 
-SQLite runs in WAL mode. I looked at [Turso](https://github.com/tursodatabase/turso)'s
-Rust rewrite first, but its concurrent-write story depends on the MVCC engine, and
-that engine still can't use indexes. This schema needs them. WAL suits the access
-pattern anyway: mostly reads, with a short burst of single-writer inserts when a
-title gets cached, and the TMDB round trip dominates either way.
-
-A couple of things about the wire format are worth flagging if you're writing a
-client. Ratings on videos are integers from 0 to 100, which is where the `40` and `70`
-threshold defaults come from, but episode ratings are TMDB's original 0 to 10 float.
-Field naming is inconsistent (`displayName` next to `poster_path`, `castId` on TV cast
-but `cast_id` on movie cast) because the original was, and changing it would break
-existing clients. Missing values are left out of responses rather than sent as `null`.
+Three things to know if you're writing a client. Ratings on videos are integers from
+0 to 100, which is where the `40` and `70` threshold defaults come from, while episode
+ratings are TMDB's 0 to 10 float. Field naming is inconsistent in the same places the
+original's was (`displayName` next to `poster_path`, `castId` on TV cast but `cast_id`
+on movie cast). Missing values are left out of responses rather than sent as `null`.
 
 ## Development
 
@@ -267,11 +250,10 @@ themselves aren't tested, since they need a live key.
 ### Images
 
 Built on every push to `main` and tagged `latest`, `main`, and `sha-<short>`. Tagging
-a release as `v1.2.3` also publishes the semver tags. Each architecture builds on a
-runner of its own architecture and the two get merged into one manifest, because
-building arm64 under emulation takes about ten times as long.
+a release as `v1.2.3` also publishes the semver tags. amd64 and arm64 each build on a
+runner of their own architecture, then get merged into one manifest.
 
-Docker Hub publishing is off until you configure it:
+Publishing to GHCR needs no setup. Docker Hub is skipped unless these are set:
 
 | Kind | Name | Example |
 | --- | --- | --- |
@@ -279,7 +261,23 @@ Docker Hub publishing is off until you configure it:
 | Secret | `DOCKERHUB_USERNAME` | `youruser` |
 | Secret | `DOCKERHUB_TOKEN` | an access token with Read & Write |
 
-Without them the workflow still runs and publishes to GHCR.
+## Roadmap
+
+Not built yet, roughly in the order I'd get to them.
+
+- **Authentication.** There is none right now. See [SECURITY.md](SECURITY.md) for how
+  to deploy around it in the meantime.
+- **Other database backends.** SQLite today. MySQL and PostgreSQL both fit behind the
+  existing `Store` trait, and MySQL is what the original offered as the alternative.
+- **Emby sync.** The original could read library state from an Emby server.
+- **InfluxDB metrics.** The original could publish local REST and TMDB API usage for
+  graphing.
+- **werstreamt.es lookups.** `werStreamtEsId` is stored and returned by the API
+  already, but nothing reads it.
+
+The `MOVIEDB_EMBY_*`, `MOVIEDB_INFLUXDB_*` and OAuth2 variables are parsed, and
+setting any of them logs a warning at startup so a configured deployment isn't left
+guessing.
 
 ## Credits
 
