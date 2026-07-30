@@ -11,9 +11,6 @@ concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  GHCR_IMAGE: ghcr.io/${{ github.repository }}
-
 jobs:
   # Decides where this run may push. Keeping it in one place means the build and
   # merge jobs never disagree, and the workflow still succeeds (build-only)
@@ -23,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       push: ${{ steps.resolve.outputs.push }}
+      ghcr_image: ${{ steps.resolve.outputs.ghcr_image }}
       dockerhub_image: ${{ steps.resolve.outputs.dockerhub_image }}
       images: ${{ steps.resolve.outputs.images }}
     steps:
@@ -35,6 +33,10 @@ jobs:
           HAS_DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME != '' }}
         run: |
           set -euo pipefail
+
+          # GHCR requires a lowercase repository name, but github.repository keeps
+          # the owner's casing verbatim.
+          ghcr_image="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
 
           # Pull requests build but never publish — they may come from forks.
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -54,13 +56,14 @@ jobs:
                  "and DOCKERHUB_TOKEN secrets to enable it."
           fi
 
-          images="${GHCR_IMAGE}"
+          images="${ghcr_image}"
           if [[ -n "${dockerhub_image}" ]]; then
             images="${images},${dockerhub_image}"
           fi
 
           {
             echo "push=${push}"
+            echo "ghcr_image=${ghcr_image}"
             echo "dockerhub_image=${dockerhub_image}"
             echo "images=${images}"
           } >> "$GITHUB_OUTPUT"
@@ -187,7 +190,7 @@ jobs:
         id: meta-ghcr
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.GHCR_IMAGE }}
+          images: ${{ needs.config.outputs.ghcr_image }}
 
       - name: Push GHCR manifest list
         working-directory: /tmp/digests
@@ -196,7 +199,7 @@ jobs:
           # shellcheck disable=SC2046 # word splitting is the point: one -t per tag
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta-ghcr.outputs.json }}') \
-            $(printf '${{ env.GHCR_IMAGE }}@sha256:%s ' *)
+            $(printf '${{ needs.config.outputs.ghcr_image }}@sha256:%s ' *)
 
       - name: Docker Hub metadata
         id: meta-dockerhub
@@ -218,7 +221,7 @@ jobs:
       - name: Inspect the published image
         run: |
           docker buildx imagetools inspect \
-            "${{ env.GHCR_IMAGE }}:${{ steps.meta-ghcr.outputs.version }}"
+            "${{ needs.config.outputs.ghcr_image }}:${{ steps.meta-ghcr.outputs.version }}"
 
   # Keeps the Docker Hub description in step with the README.
   description:
