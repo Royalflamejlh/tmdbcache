@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Loaded into the local daemon rather than pushed; this is amd64 only,
       # which is enough since both architectures share the same base packages.
