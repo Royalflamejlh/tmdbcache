@@ -1,30 +1,24 @@
-<div align="center">
-
 # tmdbcache
-
-**A self-hosted web app that catalogues your video library, backed by TMDB — and caches everything locally.**
-
-Metadata in SQLite, artwork on disk. Once a title is cached, browsing it costs zero upstream calls.
 
 [![CI](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/ci.yml/badge.svg)](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/ci.yml)
 [![Docker](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/docker.yml/badge.svg)](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/docker.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Rust](https://img.shields.io/badge/rust-2024%20edition-orange?logo=rust)
-![Platforms](https://img.shields.io/badge/platforms-amd64%20%7C%20arm64-informational)
 
-</div>
+A self-hosted catalogue for your movie and TV collection. Metadata comes from TMDB
+and is cached in SQLite; artwork is cached on disk. Once a title has been fetched,
+looking at it costs no network at all.
 
----
+This is a Rust rewrite of MovieDB, a Spring Boot app that used to live at
+`justsomebody42/movieDB`. The source is gone from GitHub, but the
+[container image](https://hub.docker.com/r/moviedb/moviedb) is still up and it shipped
+its own OpenAPI document. The API here matches that document, so anything written
+against the original still works. It's checked in at
+[`docs/openapi-original.yaml`](docs/openapi-original.yaml) if you want to compare.
 
-This is a Rust reimplementation of **MovieDB** — a Spring Boot + PWA app published as
-[`moviedb/moviedb`](https://hub.docker.com/r/moviedb/moviedb) whose source
-(`justsomebody42/movieDB`) **disappeared from GitHub**.
-
-The image was still on Docker Hub, and it shipped its own OpenAPI document. That
-document — 26 endpoints, ~40 schemas — was recovered and is reproduced verbatim in
-[`docs/openapi-original.yaml`](docs/openapi-original.yaml). So this isn't a guess at
-the original API; it's the real contract, reimplemented field for field. See
-[`docs/PROVENANCE.md`](docs/PROVENANCE.md) for exactly how it was extracted.
+> [!WARNING]
+> There is no authentication. Anyone who can reach the port can read your library,
+> add and delete titles, and spend your TMDB quota. Put it behind a reverse proxy or
+> keep it on a trusted network.
 
 ## Quick start
 
@@ -35,8 +29,8 @@ services:
     image: ghcr.io/royalflamejlh/tmdbcache:latest
     container_name: tmdbcache
     environment:
-      - MOVIEDB_TMDB_APIKEY=your_tmdb_key   # required
-      - MOVIEDB_KEYCLOAK_ENABLED=false      # required; auth is not implemented
+      - MOVIEDB_TMDB_APIKEY=your_tmdb_key
+      - MOVIEDB_KEYCLOAK_ENABLED=false
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
@@ -53,72 +47,75 @@ services:
 docker compose up -d
 ```
 
-Then open <http://localhost:8081>, search for something, and click it — opening a
-search result is what adds it to your library.
+Open <http://localhost:8081>, search for something, and click a result. Opening a
+search result is what pulls it into your library.
 
-<details>
-<summary>Without Docker</summary>
+Images are published for amd64 and arm64.
+
+Running it without Docker works too, you just need the two required variables set:
 
 ```bash
-export MOVIEDB_TMDB_APIKEY=your_key_here
+export MOVIEDB_TMDB_APIKEY=your_key
 export MOVIEDB_KEYCLOAK_ENABLED=false
 cargo run --release
 ```
 
-</details>
+Either a TMDB v3 API key or a v4 read access token will do. The key's shape is
+detected and sent as `api_key` or as a bearer token to match.
 
-A TMDB **v3 API key** or a **v4 read access token** both work — the key's shape is
-detected and it is sent as `api_key` or as a bearer token accordingly.
+## What you get
 
-## What it does
+Search TMDB and add movies or TV shows. Everything about a title is cached locally,
+so pages render instantly and your library still browses fine when TMDB is down or
+your key has run out of quota.
 
-| | |
-| --- | --- |
-| 🔎 **Search and add** | Find movies and TV shows on TMDB; opening one caches it locally. |
-| 💾 **Caches everything** | Metadata in SQLite, artwork on disk under `imageCache/<size>/`. A cached title renders with no TMDB calls at all. |
-| ✅ **Tracks your state** | Watched, favorite, on-watchlist and freeform tags — per movie, show, season *and* episode. |
-| ✏️ **Manual overrides** | Replace a poster, backdrop, overview or IMDb id. Overrides live in separate columns, so `?refresh=true` never clobbers an edit. |
-| 🎲 **Discover** | Pools the TMDB recommendations of everything you own and surfaces the most-recommended titles you don't. |
-| 🖼️ **Wallpapers** | Drop `.jpg`/`.png` files into `imageCache/wallpapers`; they appear behind the UI within seconds, no restart — the directory is watched. |
-| 📺 **Offline-friendly** | If TMDB is unreachable, your cached library still browses fine. |
+On top of the cached metadata you can mark things watched, favourite, or on a
+watchlist, and attach arbitrary tags. All of that works per movie, per show, per
+season, and per episode.
 
-The bundled UI is a single self-contained HTML document compiled into the binary — no
-asset pipeline, no CDN, no build step. It talks to the same public `/api/v1` endpoints
-as any other client, so you can point your own frontend at it instead.
+You can also override a poster, backdrop, overview, or IMDb id by hand. Overrides are
+kept in their own columns and layered over the upstream values on read, so
+`?refresh=true` won't undo your edits.
+
+The Discover page pools the TMDB recommendations of everything you own and ranks the
+titles you don't have by how often they come up.
+
+Drop `.jpg` or `.png` files into `imageCache/wallpapers` and they'll show up behind
+the UI within a few seconds. The directory is watched, so no restart.
+
+The bundled UI is one self-contained HTML file compiled into the binary. No asset
+pipeline, no CDN, nothing to mount. It uses the same public `/api/v1` endpoints as
+any other client, so you can point your own frontend at it and ignore it entirely.
 
 ## Configuration
 
-Variable names and defaults match the original, so an existing MovieDB deployment can
-be pointed at this image unchanged.
+Variable names and defaults are the same as the original, so an existing MovieDB
+deployment can be pointed at this image without changes.
 
-### Required
+Two are required:
 
 | Variable | Notes |
 | --- | --- |
 | `MOVIEDB_TMDB_APIKEY` | TMDB v3 key or v4 read access token. |
-| `MOVIEDB_KEYCLOAK_ENABLED` | Required by the original. Auth is **not implemented** here — set `false`. `MOVIEDB_OAUTH2_ENABLED` is accepted as the 2.0 name. |
+| `MOVIEDB_KEYCLOAK_ENABLED` | The original required this. Auth isn't implemented here, so set `false`. `MOVIEDB_OAUTH2_ENABLED` also works. |
 
 ### Container
 
-Follows the [LinuxServer.io](https://www.linuxserver.io/) conventions — though it is
-neither affiliated with nor built on their base images.
-
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `PUID` | `911` | The container moves its own `abc` user onto this uid, so bind mounts work without you chowning anything. |
-| `PGID` | `911` | As above, for the group. |
-| `UMASK` | `022` | Widen to `002` for group-writable shares. |
+| `PUID` | `911` | The container moves its own service user onto this uid at startup, which means bind mounts work without chowning anything first. |
+| `PGID` | `911` | Same, for the group. |
+| `UMASK` | `022` | Set `002` for group-writable shares. |
 | `TZ` | unset | Any tzdata name, e.g. `Europe/London`. |
 
-Extras that come with it:
+The server runs under s6-overlay rather than as PID 1, so if it crashes it gets
+restarted instead of taking the container down with it. Executable scripts mounted at
+`/custom-cont-init.d` run as root before the server starts, which is handy for
+one-off setup you don't want to rebuild the image for.
 
-- **s6-overlay supervision** — if the server crashes, s6 restarts it rather than
-  letting the container die.
-- **`/custom-cont-init.d`** — mount executable scripts there to run as root before
-  the service starts, without rebuilding the image.
-- **Ownership is fixed only when needed** — the recursive chown is skipped when the
-  top-level directory already has the right owner, so a 40k-poster cache doesn't get
-  re-walked on every boot.
+The startup chown is skipped when the data directories already have the right owner.
+An image cache with tens of thousands of posters in it doesn't get re-walked on every
+boot.
 
 <details>
 <summary>Paths and networking</summary>
@@ -129,7 +126,7 @@ Extras that come with it:
 | `MOVIEDB_DATABASE_PATH` | `/database` (`./database` outside Docker) |
 | `MOVIEDB_IMAGE_CACHE_PATH` | `/imageCache` (`./imageCache` outside Docker) |
 | `MOVIEDB_TMDB_LANGUAGE` | `en-US` |
-| `MOVIEDB_TMDB_REGION` | `US` — picks which certification and streaming providers to show |
+| `MOVIEDB_TMDB_REGION` | `US`, picks which age certification and streaming providers get shown |
 
 </details>
 
@@ -157,21 +154,22 @@ Extras that come with it:
 | `MOVIEDB_NUMBER_OF_DIRECTED_MOVIES` | `12` |
 | `MOVIEDB_DEFAULT_MOBILE_POSTERWIDTH` | `133` |
 | `MOVIEDB_DEFAULT_DESKTOP_POSTERWIDTH` | `220` |
-| `MOVIEDB_SUBSCRIBED_WATCH_PROVIDERS` | empty — comma-separated provider names |
+| `MOVIEDB_SUBSCRIBED_WATCH_PROVIDERS` | empty, comma-separated provider names |
 
 </details>
 
-### Recognised but not implemented
+### What's missing
 
-`MOVIEDB_EMBY_*`, `MOVIEDB_INFLUXDB_*` and the OAuth2/Keycloak variables are parsed
-and **logged as a warning at startup**, then ignored — they are not silently dropped,
-but nothing acts on them. Also absent: the MySQL backend (SQLite only) and the
-`werstreamt.es` integration, though `werStreamtEsId` round-trips through the API and
-is stored.
+The original could sync from Emby, push metrics to InfluxDB, and sit behind Keycloak.
+None of that is implemented. Those variables are still parsed and logged as a warning
+at startup, so a configured deployment gets told rather than silently ignored.
+
+There's no MySQL backend either, only SQLite. `werStreamtEsId` is stored and returned
+but nothing uses it.
 
 ## API
 
-All 26 endpoints from the recovered spec live under `/api/v1`:
+Everything lives under `/api/v1`.
 
 | Method | Path |
 | --- | --- |
@@ -180,15 +178,15 @@ All 26 endpoints from the recovered spec live under `/api/v1`:
 | `GET` | `/tmdb/configuration` |
 | `GET` `DELETE` `PATCH` | `/movie/{movieId}` |
 | `GET` | `/movie/{movieId}/trailer` |
-| `GET` | `/movie/{movieId}/backdrops` · `/posters` |
+| `GET` | `/movie/{movieId}/backdrops`, `/posters` |
 | `GET` | `/movie/credits/{movieId}` |
 | `GET` | `/movie/recommendations/{movieId}` |
-| `GET` | `/movies?tag=&not=` · `/movies/favorites` · `/movies/topRecommendations?limit=` |
+| `GET` | `/movies?tag=&not=`, `/movies/favorites`, `/movies/topRecommendations?limit=` |
 | `GET` `PATCH` | `/person/{personId}` |
 | `GET` | `/person/{personId}/profiles` |
 | `GET` | `/search/tmdb?query=` |
 | `GET` `DELETE` `PATCH` | `/tvshow/{tvShowId}` |
-| `GET` | `/tvshow/{tvShowId}/backdrops` · `/posters` |
+| `GET` | `/tvshow/{tvShowId}/backdrops`, `/posters` |
 | `GET` | `/tvshows?tag=&not=` |
 | `GET` `PATCH` | `/tvseason/{tvShowId}/{seasonId}` |
 | `GET` | `/tvseason/{tvShowId}/{seasonId}/posters` |
@@ -196,77 +194,59 @@ All 26 endpoints from the recovered spec live under `/api/v1`:
 | `GET` | `/collection/{collectionId}` |
 | `GET` | `/videos` |
 
-`GET` endpoints accept `?refresh=true` to force a re-fetch; `/movie/{id}` and
-`/tvshow/{id}` also accept `?loadDetails=true`.
+`GET` endpoints take `?refresh=true` to force a re-fetch. `/movie/{id}` and
+`/tvshow/{id}` also take `?loadDetails=true`, which pulls credits and recommendations
+in the same round trip.
 
-Two additions beyond the original: `PATCH /api/v1/tvseason/{show}/{season}/watched`
-(bulk-marks a season, which the original could only do episode by episode) and
-`GET /health` + `/actuator/health` for container probes.
+Beyond the original there's `PATCH /api/v1/tvseason/{show}/{season}/watched` for
+marking a whole season at once, and `/health` for container probes.
 
-### Toggling state
+State is changed by patching a tag. `favorite`, `watched`, and `onWatchlist` are
+reserved names that map onto their own columns; anything else is a free-form tag.
 
 ```bash
-# Add a tag
+# add a tag
 curl -X PATCH localhost:8081/api/v1/movie/603 \
   -H 'content-type: application/json' -d '{"tag":"4k","checked":true}'
 
-# Mark watched — favorite / watched / onWatchlist are reserved tag names
+# mark watched
 curl -X PATCH localhost:8081/api/v1/movie/603 \
   -H 'content-type: application/json' -d '{"tag":"watched","checked":true}'
 
-# Override the poster; a later ?refresh=true will not undo this
+# override the poster; a later ?refresh=true won't undo this
 curl -X PATCH localhost:8081/api/v1/movie/603 \
   -H 'content-type: application/json' -d '{"poster_path":"/mine.jpg"}'
 ```
 
-## Architecture
+## How it's put together
 
 ```
 src/
-  api/       axum handlers — paths mirror the recovered OpenAPI document exactly
-  service/   get-or-fetch caching layer; the only place that decides store vs TMDB
-  store/     Store trait + SQLite implementation (WAL mode)
-  tmdb/      TMDB v3 client and response DTOs
-  model/     wire types, field-for-field with the original's schemas
-  web/       the bundled single-page UI
-docker/root/ s6-overlay service definitions and init scripts
-migrations/  SQL schema, applied automatically at startup
+  api/       axum handlers, one route per path in the OpenAPI document
+  service/   the get-or-fetch layer; the only code that decides store vs TMDB
+  store/     Store trait plus the SQLite implementation
+  tmdb/      TMDB v3 client and response types
+  model/     wire types
+  web/       the bundled UI
+docker/root/ s6 service definitions and init scripts
+migrations/  schema, applied at startup
 ```
 
-Three decisions worth knowing about:
+All SQL is confined to `store::sqlite` behind a `Store` trait, so moving to another
+engine means writing a second implementation and repointing one type alias.
 
-**The `Store` trait.** All SQL lives in `store::sqlite`; nothing above it knows the
-backend. Swapping engines means adding an implementation and repointing the
-`ActiveStore` type alias.
+SQLite runs in WAL mode. I looked at [Turso](https://github.com/tursodatabase/turso)'s
+Rust rewrite first, but its concurrent-write story depends on the MVCC engine, and
+that engine still can't use indexes. This schema needs them. WAL suits the access
+pattern anyway: mostly reads, with a short burst of single-writer inserts when a
+title gets cached, and the TMDB round trip dominates either way.
 
-**SQLite in WAL mode.** [Turso](https://github.com/tursodatabase/turso)'s Rust rewrite
-was considered and rejected: its concurrency win comes from the MVCC engine, which is
-still experimental and **does not support indexes** — and this schema leans on them.
-WAL also suits the actual workload, which is read-heavy with bursty single-writer
-inserts when a title is cached; the dominant latency is the TMDB round-trip, not write
-contention.
-
-**Overrides in separate columns.** `poster_path_override` and friends sit beside the
-upstream values and are `COALESCE`d over them on read, which is what makes
-`?refresh=true` always safe to run.
-
-### Notes on fidelity
-
-- `vote_average` is scaled to **0..=100** on videos, matching the original's
-  `LOW_RATING_THRESHOLD=40` / `HIGH_RATING_THRESHOLD=70` defaults. Episodes keep
-  TMDB's 0..=10 float, as the recovered schema specifies.
-- The wire format reproduces the original's inconsistent casing exactly —
-  `displayName` beside `poster_path`, `castId` on TV cast but `cast_id` on movie cast.
-  Existing clients keep working.
-- Absent fields are **omitted**, not sent as `null` (the original ran Jackson with
-  `default-property-inclusion=non_null`).
-- `VideoPatch` exposes only `tag` + `checked`, yet responses carry `favorite`,
-  `watched` and `onWatchlist` booleans — so those three tag names are treated as
-  reserved and routed to their columns instead of the tag table. **This is an
-  inference**, not something the spec states.
-- `Person.movieCast` / `directedMovies` / `tvCast` return `cast_id` = the **video's**
-  id (the schema doesn't say which id it carries), with `character` holding the role
-  or, for crew, the job. This makes the person page link into your library.
+A couple of things about the wire format are worth flagging if you're writing a
+client. Ratings on videos are integers from 0 to 100, which is where the `40` and `70`
+threshold defaults come from, but episode ratings are TMDB's original 0 to 10 float.
+Field naming is inconsistent (`displayName` next to `poster_path`, `castId` on TV cast
+but `cast_id` on movie cast) because the original was, and changing it would break
+existing clients. Missing values are left out of responses rather than sent as `null`.
 
 ## Development
 
@@ -277,53 +257,38 @@ cargo fmt --all --check
 cargo run
 ```
 
-Tests run against an in-memory SQLite database and drive the real axum router, so they
-cover routing, serialisation, patch semantics, bind-parameter chunking and the image
-path guards without a TMDB key.
+Tests use an in-memory database and drive the real router, covering routing,
+serialisation, patch behaviour, and the image path guards. The TMDB fetch paths
+themselves aren't tested, since they need a live key.
 
-**Not covered by tests:** the TMDB fetch paths themselves. They need a live key, and
-are exercised only indirectly (an invalid key correctly surfaces as a `502`).
+`main` is protected and CI is a required check, so open a PR. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-### Container images
+### Images
 
-Published to GHCR on every push to `main`, and to Docker Hub when configured:
+Built on every push to `main` and tagged `latest`, `main`, and `sha-<short>`. Tagging
+a release as `v1.2.3` also publishes the semver tags. Each architecture builds on a
+runner of its own architecture and the two get merged into one manifest, because
+building arm64 under emulation takes about ten times as long.
 
-```
-ghcr.io/royalflamejlh/tmdbcache:latest
-ghcr.io/royalflamejlh/tmdbcache:v1.2.3     # on tags
-ghcr.io/royalflamejlh/tmdbcache:sha-abc1234
-```
-
-Each architecture is built on a native runner (`ubuntu-latest` and
-`ubuntu-24.04-arm`) and merged into one manifest list — building arm64 under QEMU
-would turn a ~3 minute Rust build into a ~40 minute one.
-
-To enable Docker Hub publishing, set:
+Docker Hub publishing is off until you configure it:
 
 | Kind | Name | Example |
 | --- | --- | --- |
 | Variable | `DOCKERHUB_REPOSITORY` | `youruser/tmdbcache` |
 | Secret | `DOCKERHUB_USERNAME` | `youruser` |
-| Secret | `DOCKERHUB_TOKEN` | a Docker Hub access token with **Read & Write** |
+| Secret | `DOCKERHUB_TOKEN` | an access token with Read & Write |
 
-Until those exist the workflow still runs and publishes to GHCR, logging a notice.
+Without them the workflow still runs and publishes to GHCR.
 
-## Contributing
+## Credits
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). In short: `main` is protected, so open a PR,
-and keep `cargo fmt`, `cargo clippy` and `cargo test` green.
-
-## Acknowledgements
-
-- **justsomebody42** for the original MovieDB, which this reimplements.
-- **[LinuxServer.io](https://www.linuxserver.io/)** for the container conventions this
-  copies. This project is not affiliated with them.
-- **[s6-overlay](https://github.com/just-containers/s6-overlay)** for the supervision.
+Thanks to justsomebody42 for the original MovieDB, and to
+[s6-overlay](https://github.com/just-containers/s6-overlay) for the process
+supervision.
 
 ## License
 
-[MIT](LICENSE) — with the exception of the recovered upstream documentation in
-`docs/`, which is third-party material; see
-[`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+[MIT](LICENSE).
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
