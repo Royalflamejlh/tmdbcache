@@ -60,8 +60,7 @@ export MOVIEDB_KEYCLOAK_ENABLED=false
 cargo run --release
 ```
 
-Either a TMDB v3 API key or a v4 read access token will do. The key's shape is
-detected and sent as `api_key` or as a bearer token to match.
+Either a TMDB v3 API key or a v4 read access token will do.
 
 ## What you get
 
@@ -260,10 +259,6 @@ Publishing to GHCR needs no setup. Docker Hub is skipped unless these are set:
 | Variable | `DOCKERHUB_REPOSITORY` | `youruser/tmdbcache` |
 | Secret | `DOCKERHUB_USERNAME` | `youruser` |
 | Secret | `DOCKERHUB_TOKEN` | an access token with Read & Write |
-
-Pushing images only needs Read & Write. Syncing this README to the Docker Hub
-repository description additionally needs a token with admin scope; without it that
-one step is skipped and the rest of the publish still succeeds.
 
 ## Roadmap
 
