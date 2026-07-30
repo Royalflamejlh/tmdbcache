@@ -1,0 +1,90 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly. A CVE disclosed against an unchanged image would otherwise never
+    # surface, since nothing would trigger a scan.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Scan image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required to publish findings to the Security tab.
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Loaded into the local daemon rather than pushed; this is amd64 only,
+      # which is enough since both architectures share the same base packages.
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: tmdbcache:scan
+          cache-from: type=gha,scope=linux/amd64
+
+      # The full report, including findings Debian has no patch for, so they stay
+      # visible in the Security tab without blocking anything.
+      - name: Trivy report
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: tmdbcache:scan
+          format: sarif
+          output: trivy.sarif
+          scanners: vuln,secret
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image
+
+      # The gate deliberately ignores unfixed findings. Debian's base image
+      # carries well over a hundred CVEs with no available patch; failing on
+      # those would leave this permanently red and teach everyone to ignore it.
+      # This fails only when a fix exists and the image has not picked it up,
+      # which is the part that is actually actionable.
+      - name: Fail on anything fixable
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: tmdbcache:scan
+          format: table
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+  dependencies:
+    name: Audit Rust dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # Plain `cargo audit` fails on advisories only. `--deny warnings` would
+      # also fail on unmaintained crates, which is noise rather than a finding.
+      - name: cargo audit
+        run: cargo audit

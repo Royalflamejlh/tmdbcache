@@ -67,6 +67,19 @@ RUN set -eux; \
     apt-get purge -y --auto-remove xz-utils curl; \
     rm -rf /var/lib/apt/lists/*
 
+# Debian's base image ships perl-base, and it accounts for four of the five
+# CRITICAL CVEs reported against this image, none of which Debian has a fix for.
+# Nothing here uses perl: the init scripts are bash, usermod/groupmod and the s6
+# binaries are C, and the server is a static Rust binary. Dropping it removes
+# that surface entirely.
+#
+# It is marked Essential, hence the force flag. This has to run after
+# ca-certificates is configured, because debconf needs perl during install.
+RUN set -eux; \
+    dpkg --force-remove-essential --purge perl-base; \
+    # Prove the trust store survived, since TLS to api.themoviedb.org depends on it.
+    test -s /etc/ssl/certs/ca-certificates.crt
+
 # The service user. init-adduser moves it onto the operator's PUID/PGID at boot,
 # so the build-time ids here only matter until then.
 RUN set -eux; \
