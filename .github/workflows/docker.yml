@@ -11,6 +11,18 @@ concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Shared by every metadata-action step below. Without an explicit list the
+  # action's defaults publish only `main` on a branch push — no `latest`.
+  TAG_RULES: |
+    type=ref,event=branch
+    type=ref,event=pr
+    type=semver,pattern={{version}}
+    type=semver,pattern={{major}}.{{minor}}
+    type=semver,pattern={{major}}
+    type=sha,format=short
+    type=raw,value=latest,enable={{is_default_branch}}
+
 jobs:
   # Decides where this run may push. Keeping it in one place means the build and
   # merge jobs never disagree, and the workflow still succeeds (build-only)
@@ -119,6 +131,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ needs.config.outputs.images }}
+          tags: ${{ env.TAG_RULES }}
 
       # Pushing by digest rather than by tag lets the merge job below assemble one
       # manifest list from both architectures. The digest is content-addressed, so
@@ -191,6 +204,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ needs.config.outputs.ghcr_image }}
+          tags: ${{ env.TAG_RULES }}
 
       - name: Push GHCR manifest list
         working-directory: /tmp/digests
@@ -207,6 +221,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ needs.config.outputs.dockerhub_image }}
+          tags: ${{ env.TAG_RULES }}
 
       - name: Push Docker Hub manifest list
         if: needs.config.outputs.dockerhub_image != ''
