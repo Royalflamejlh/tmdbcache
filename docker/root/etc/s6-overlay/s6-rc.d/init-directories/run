@@ -22,6 +22,6 @@ for dir in "${DATA_DIRS[@]}"; do
     [[ -d ${dir} ]] || continue
     if [[ $(stat -c %u "${dir}") != "$(id -u abc)" ]]; then
         echo "Fixing ownership of ${dir} (this can take a moment on first run)"
-        lsiown -R abc:abc "${dir}"
+        chown-if-root -R abc:abc "${dir}"
     fi
 done

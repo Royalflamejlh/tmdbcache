@@ -2,7 +2,7 @@
 //!
 //! TMDB artwork is fetched once and written under
 //! `<imageCache>/<size>/<filename>`, then served from disk. This is what keeps a
-//! browsing session from hammering TMDB — and what makes the library usable if
+//! browsing session from hammering TMDB, and what makes the library usable when
 //! TMDB is unreachable.
 
 use std::path::{Path, PathBuf};

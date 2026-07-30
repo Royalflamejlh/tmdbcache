@@ -1,8 +1,6 @@
 #!/command/with-contenv bash
-# Startup banner, in the shape LinuxServer.io images use.
-#
-# This project is not affiliated with linuxserver.io — it only follows their
-# container conventions, which are genuinely pleasant to operate.
+# Prints what you'd want to see first in `docker logs`: which build is running,
+# and (from init-adduser next) which ids it will run as.
 
 cat <<BANNER
 ────────────────────────────────────────────────────

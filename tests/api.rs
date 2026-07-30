@@ -336,7 +336,7 @@ async fn deleting_a_movie_empties_the_library() {
 
     let (status, _) = get(&router, "/api/v1/movie/603").await;
     // Gone locally; the handler would now have to reach TMDB, which the dummy
-    // key cannot satisfy — so anything but 200 proves the delete landed.
+    // key cannot satisfy, so anything but 200 proves the delete landed.
     assert_ne!(status, StatusCode::OK);
 
     let (_, body) = get(&router, "/api/v1/movies").await;

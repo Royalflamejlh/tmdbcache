@@ -13,7 +13,7 @@ concurrency:
 
 env:
   # Shared by every metadata-action step below. Without an explicit list the
-  # action's defaults publish only `main` on a branch push — no `latest`.
+  # action's defaults publish only `main` on a branch push, with no `latest`.
   TAG_RULES: |
     type=ref,event=branch
     type=ref,event=pr
@@ -50,7 +50,7 @@ jobs:
           # the owner's casing verbatim.
           ghcr_image="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
 
-          # Pull requests build but never publish — they may come from forks.
+          # Pull requests build but never publish, since they may come from forks.
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             push=false
           else

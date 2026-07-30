@@ -50,7 +50,7 @@ pub async fn search(state: &AppState, query: &str) -> Result<SearchResponse> {
         state.tmdb.search_tv(query, 1)
     );
 
-    // One arm failing is tolerable — the other still returns hits. Both failing
+    // One arm failing is tolerable since the other still returns hits. Both failing
     // means TMDB itself is unreachable or the API key is wrong, which the caller
     // needs to see rather than read as "no results".
     if let (Err(movie_err), Err(tv_err)) = (&movies, &shows) {

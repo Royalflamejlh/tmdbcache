@@ -1,8 +1,8 @@
 //! Wire types for the public API.
 //!
 //! These mirror the schemas recovered from the original container's OpenAPI
-//! document (`docs/openapi-original.yaml`). Field names — including the
-//! inconsistent mix of `snake_case` and `camelCase` — are reproduced exactly so
+//! document (`docs/openapi-original.yaml`). Field names, including the
+//! inconsistent mix of `snake_case` and `camelCase`, are reproduced exactly so
 //! existing clients keep working.
 
 pub mod appconfig;
@@ -34,7 +34,7 @@ pub use video::{
 /// Tags that map onto dedicated columns rather than the freeform tag table.
 ///
 /// The upstream `VideoPatch` exposes only `tag` + `checked`, yet responses carry
-/// `favorite`, `watched` and `onWatchlist` booleans — so these tag names are the
+/// `favorite`, `watched` and `onWatchlist` booleans, so these tag names are the
 /// mechanism for toggling them.
 pub const TAG_FAVORITE: &str = "favorite";
 pub const TAG_WATCHED: &str = "watched";

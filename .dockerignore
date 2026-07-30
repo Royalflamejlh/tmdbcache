@@ -1,4 +1,4 @@
-# Build artifacts — never needed in the image context
+# Build artifacts, never needed in the image context
 target/
 
 # Runtime data

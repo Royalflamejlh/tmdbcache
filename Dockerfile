@@ -34,9 +34,8 @@ RUN touch src/main.rs src/lib.rs \
 # ---------------------------------------------------------------------------
 FROM docker.io/library/debian:bookworm-slim AS runtime
 
-# Follows the LinuxServer.io container conventions — s6-overlay supervision,
-# PUID/PGID, UMASK, /custom-cont-init.d — but is not affiliated with, nor built
-# on, their base images.
+# s6-overlay supervises the server so a crash restarts it instead of taking the
+# container down. It also provides the ordered init scripts under docker/root/.
 ARG S6_OVERLAY_VERSION=3.2.1.0
 # Set by buildx; maps onto s6-overlay's release asset names.
 ARG TARGETARCH
@@ -68,14 +67,14 @@ RUN set -eux; \
     apt-get purge -y --auto-remove xz-utils curl; \
     rm -rf /var/lib/apt/lists/*
 
-# The service user. init-adduser moves it onto the operator's PUID/PGID at boot;
-# 911 is the LinuxServer.io default and is kept for familiarity.
+# The service user. init-adduser moves it onto the operator's PUID/PGID at boot,
+# so the build-time ids here only matter until then.
 RUN set -eux; \
     groupadd --gid 911 abc; \
     useradd --uid 911 --gid abc --shell /bin/false --no-create-home abc
 
 COPY --from=build /src/target/release/tmdbcache /usr/local/bin/tmdbcache
-# The s6 service definitions, lsiown helper and init scripts.
+# The s6 service definitions, init scripts and the chown-if-root helper.
 COPY docker/root/ /
 
 ARG VERSION=dev
@@ -100,7 +99,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/usr/local/bin/tmdbcache", "--healthcheck"]
 
 LABEL org.opencontainers.image.title="tmdbcache" \
-      org.opencontainers.image.description="Self-hosted TMDB-backed video library — a Rust reimplementation of MovieDB" \
+      org.opencontainers.image.description="Self-hosted TMDB-backed video library, a Rust reimplementation of MovieDB" \
       org.opencontainers.image.source="https://github.com/Royalflamejlh/tmdbcache" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \

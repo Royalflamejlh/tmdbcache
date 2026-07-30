@@ -278,8 +278,8 @@ pub fn person_upsert(dto: &TmdbPerson) -> PersonUpsert {
 
 /// Converts a paged recommendation response into a storable set.
 ///
-/// `default_kind` labels entries whose `media_type` TMDB omits — which it does
-/// for the per-title recommendation endpoints.
+/// `default_kind` labels entries whose `media_type` TMDB omits, which it does for
+/// the per-title recommendation endpoints.
 pub fn recommendation_set(
     paged: &TmdbPaged<TmdbMovieBrief>,
     default_kind: VideoType,

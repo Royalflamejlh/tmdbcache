@@ -17,7 +17,7 @@ const INDEX_HTML: &str = include_str!("index.html");
 
 /// Catches everything the API and UI routes did not claim.
 ///
-/// Unrecognised `/api/` paths must fail as JSON — answering a mistyped endpoint
+/// Unrecognised `/api/` paths must fail as JSON. Answering a mistyped endpoint
 /// with `200 text/html` would let a client mistake the UI document for a
 /// successful response.
 async fn fallback(request: Request) -> Response {

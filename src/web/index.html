@@ -457,7 +457,7 @@ async function viewSearch(params) {
   const cards = results.filter((r) => r.type === "movie" || r.type === "tvshow");
 
   app.innerHTML = `<h1>Results for “${esc(query)}”</h1>
-    <p class="sub">${cards.length} match${cards.length === 1 ? "" : "es"} on TMDB — open one to add it</p>
+    <p class="sub">${cards.length} match${cards.length === 1 ? "" : "es"} on TMDB, open one to add it</p>
     ${cards.length ? grid(cards) : `<div class="msg"><h2>Nothing found</h2></div>`}`;
 }
 

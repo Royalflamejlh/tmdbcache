@@ -4,7 +4,7 @@ use crate::model::{Person, PersonPatch, PersonProfiles};
 use crate::store::{ImageOwner, PersonCreditLimits, Store};
 
 /// People are cached as stubs whenever credits are stored, so a row existing is
-/// not enough — `fetched_at` marks a full record.
+/// not enough. `fetched_at` marks a full record.
 pub async fn get_person(state: &AppState, id: i64, refresh: bool) -> Result<Person> {
     let cached = state.store.get_person(id).await?;
     let needs_fetch =

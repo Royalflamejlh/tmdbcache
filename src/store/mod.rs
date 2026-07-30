@@ -1,9 +1,9 @@
 //! Persistence, kept behind the [`Store`] trait.
 //!
-//! Nothing above this module touches SQL. To move onto a different engine —
-//! Turso's Rust rewrite, say, once its MVCC backend supports indexes — add a
-//! second `Store` implementation and repoint [`ActiveStore`]; no service or
-//! handler code changes.
+//! Nothing above this module touches SQL. To move onto a different engine, say
+//! Turso's Rust rewrite once its MVCC backend supports indexes, add a second
+//! `Store` implementation and repoint [`ActiveStore`]. No service or handler code
+//! has to change.
 
 pub mod sqlite;
 

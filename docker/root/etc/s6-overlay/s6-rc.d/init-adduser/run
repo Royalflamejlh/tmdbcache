@@ -1,10 +1,10 @@
 #!/command/with-contenv bash
 # Aligns the in-container `abc` user with the host ids the operator asked for.
 #
-# This is the crux of the LinuxServer.io convention: rather than making the user
-# chown their bind mounts to whatever uid the image picked, the image moves its
-# own user to match theirs. `docker run -e PUID=$(id -u) -e PGID=$(id -g)` then
-# just works, and the app still never runs as root.
+# Rather than making the user chown their bind mounts to whatever uid the image
+# happened to pick, the image moves its own user to match theirs.
+# `docker run -e PUID=$(id -u) -e PGID=$(id -g)` then just works, and the app
+# still never runs as root.
 
 PUID=${PUID:-911}
 PGID=${PGID:-911}

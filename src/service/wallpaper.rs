@@ -19,8 +19,8 @@ const DEBOUNCE: Duration = Duration::from_secs(2);
 /// Serves a wallpaper by filename.
 ///
 /// The name is checked against the scanned directory listing rather than being
-/// sanitised, so only files the watcher actually saw can be served — which rules
-/// out traversal without needing to reason about path syntax.
+/// sanitised, so only files the watcher actually saw can be served. That rules out
+/// traversal without having to reason about path syntax.
 pub async fn get_wallpaper(state: &AppState, name: &str) -> Result<CachedImage> {
     if !state.wallpapers().contains(name) {
         return Err(AppError::NotFound(format!("wallpaper {name}")));
