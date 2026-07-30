@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/ci.yml/badge.svg)](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/ci.yml)
 [![Docker](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/docker.yml/badge.svg)](https://github.com/Royalflamejlh/tmdbcache/actions/workflows/docker.yml)
+[![Docker pulls](https://img.shields.io/docker/pulls/rooyal/tmdbcache?logo=docker&logoColor=white)](https://hub.docker.com/r/rooyal/tmdbcache)
+[![Image size](https://img.shields.io/docker/image-size/rooyal/tmdbcache/latest?logo=docker&logoColor=white)](https://hub.docker.com/r/rooyal/tmdbcache/tags)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A self-hosted catalogue for your movie and TV collection. Metadata comes from TMDB
@@ -50,7 +52,10 @@ docker compose up -d
 Open <http://localhost:8081>, search for something, and click a result. Opening a
 search result is what pulls it into your library.
 
-Images are published for amd64 and arm64.
+Images are published for amd64 and arm64 to both
+[GHCR](https://github.com/Royalflamejlh/tmdbcache/pkgs/container/tmdbcache) and
+[Docker Hub](https://hub.docker.com/r/rooyal/tmdbcache), so `rooyal/tmdbcache:latest`
+works in place of the GHCR path above.
 
 Running it without Docker works too, you just need the two required variables set:
 
