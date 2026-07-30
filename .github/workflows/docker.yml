@@ -119,7 +119,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ needs.config.outputs.ghcr_image }}
           tags: ${{ env.TAG_RULES }}
@@ -193,7 +193,7 @@ jobs:
 
       - name: GHCR metadata
         id: meta-ghcr
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ needs.config.outputs.ghcr_image }}
           tags: ${{ env.TAG_RULES }}
@@ -210,7 +210,7 @@ jobs:
       - name: Docker Hub metadata
         id: meta-dockerhub
         if: needs.config.outputs.dockerhub_enabled == 'true'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: docker.io/${{ vars.DOCKERHUB_REPOSITORY }}
           tags: ${{ env.TAG_RULES }}
