@@ -1,0 +1,1697 @@
+openapi: 3.0.3
+info:
+  title: Movie DB API
+  description: Movie DB API
+  version: v1.0.0
+  license:
+    name: 'See: LICENSE file'
+    url: http://localhost
+servers:
+  - url: http://moviedb.local/api/v1
+security:
+  - oauth2Profiles: []
+paths:
+  /api/v1/images:
+    get:
+      summary: Get image
+      operationId: getImage
+      tags:
+        - image
+      parameters:
+        - name: backdropSize
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: imagePath
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JPEG image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+  /api/v1/images/wallpaper/{wallpaper}:
+    get:
+      summary: Get wallpaper image
+      operationId: getWallpaper
+      tags:
+        - image
+      parameters:
+        - name: wallpaper
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JPEG image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+  /api/v1/tmdb/configuration:
+    get:
+      summary: Get configuration
+      tags:
+        - configuration
+      operationId: getConfiguration
+      responses:
+        '200':
+          description: App configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConfig'
+        '404':
+          description: Configuration not found
+  /api/v1/movie/{movieId}/trailer:
+    get:
+      summary: Get YouTube trailer key for a movie
+      operationId: getMovieTrailerById
+      tags:
+        - movie
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+      responses:
+        '200':
+          description: YouTube trailer key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trailer'
+        '404':
+          description: Movie not found or no trailer available
+  /api/v1/movie/{movieId}/backdrops:
+    get:
+      summary: Get movie backdrops by movie ID
+      operationId: getMovieBackdropsById
+      tags:
+        - movie
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: Movie backdrops images
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Images'
+        '404':
+          description: Movie or images not found
+  /api/v1/movie/{movieId}/posters:
+    get:
+      summary: Get movie posters by movie ID
+      operationId: getMoviePostersById
+      tags:
+        - movie
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: Movie posters images
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Images'
+        '404':
+          description: Movie or images not found
+  /api/v1/movie/{movieId}:
+    get:
+      summary: Get a movie by ID
+      operationId: getMovieById
+      tags:
+        - movie
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+        - name: loadDetails
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional loadDetails flag
+      responses:
+        '200':
+          description: Movie details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movie'
+        '404':
+          description: Movie not found
+    delete:
+      summary: Delete a movie by ID
+      operationId: deleteMovieById
+      tags:
+        - movie
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+      responses:
+        '204':
+          description: Movie deleted successfully
+        '404':
+          description: Movie not found
+    patch:
+      summary: Patch a movie by ID
+      operationId: patchMovieById
+      tags:
+        - movie
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoPatch'
+      responses:
+        '200':
+          description: Patched movie details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movie'
+        '400':
+          description: Invalid patch data
+        '404':
+          description: Movie not found
+  /api/v1/movie/credits/{movieId}:
+    get:
+      summary: Get movie credits by ID
+      operationId: getMovieCredits
+      tags:
+        - credits
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: Movie credits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credits'
+        '404':
+          description: Movie not found
+  /api/v1/movie/recommendations/{movieId}:
+    get:
+      summary: Get recommendations for a movie by ID
+      operationId: getRecommendationsByMovieId
+      tags:
+        - recommendations
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Movie ID
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: Movie details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recommendations'
+        '404':
+          description: Movie not found
+  /api/v1/movies:
+    get:
+      summary: Get movies
+      operationId: getMovies
+      tags:
+        - movies
+      parameters:
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional tag (string)
+        - name: not
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional, negates search for tag
+      responses:
+        '200':
+          description: Movies matching the query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoviesResult'
+        '404':
+          description: Not found
+  /api/v1/movies/favorites:
+    get:
+      summary: Get favorite movies
+      operationId: getFavoriteMovies
+      tags:
+        - movies
+      responses:
+        '200':
+          description: Favorite movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoviesResult'
+        '404':
+          description: Not found
+  /api/v1/movies/topRecommendations:
+    get:
+      summary: Get top recommended movies
+      operationId: getTopRecommendedMovies
+      tags:
+        - movies
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Optional limit (integer)
+      responses:
+        '200':
+          description: Top recommended movies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MoviesResult'
+        '404':
+          description: Not found
+  /api/v1/person/{personId}:
+    get:
+      summary: Get a person by ID
+      tags:
+        - person
+      operationId: getPerson
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID of the person to retrieve
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: Person details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+        '404':
+          description: Person not found
+    patch:
+      summary: Patch a person by ID
+      tags:
+        - person
+      operationId: patchPerson
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID of the person to patch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonPatch'
+      responses:
+        '200':
+          description: Updated person
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+        '404':
+          description: Person not found
+  /api/v1/person/{personId}/profiles:
+    get:
+      summary: Get profiles for person by ID
+      tags:
+        - person
+      operationId: getPersonProfiles
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID of the person to retrieve
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: Person details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonProfiles'
+        '404':
+          description: Person not found
+  /api/v1/search/tmdb:
+    get:
+      summary: Search TMDB
+      tags:
+        - search
+      operationId: searchTmdb
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: search query (string)
+      responses:
+        '200':
+          description: Search result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '404':
+          description: Not found
+  /api/v1/tvepisode/{tvShowId}/{tvSeasonId}/{tvEpisodeId}:
+    patch:
+      summary: Patch a tv episode by ID
+      operationId: patchTvEpisode
+      tags:
+        - tvEpisode
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tvSeasonId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: tvEpisodeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TvEpisodePatch'
+      responses:
+        '200':
+          description: TV episode details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvEpisode'
+        '404':
+          description: TV episode not found
+  /api/v1/tvseason/{tvShowId}/{seasonId}:
+    get:
+      summary: Get a tv season by ID
+      tags:
+        - tvSeason
+      operationId: getTvSeason
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: seasonId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: TV season details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvSeason'
+        '404':
+          description: TV season not found
+    patch:
+      summary: Patch a tv season by ID
+      operationId: patchTvSeason
+      tags:
+        - tvSeason
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: seasonId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoPatch'
+      responses:
+        '200':
+          description: TV episode details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvSeason'
+        '404':
+          description: TV season not found
+  /api/v1/tvseason/{tvShowId}/{seasonId}/posters:
+    get:
+      summary: Get tv season posters by ID
+      tags:
+        - tvSeason
+      operationId: getTvSeasonPosters
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: seasonId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: TV season details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Images'
+        '404':
+          description: TV season not found
+  /api/v1/tvshows:
+    get:
+      summary: Get TV Shows
+      operationId: getTvShows
+      tags:
+        - tvShows
+      parameters:
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional tag (string)
+        - name: not
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional, negates search for tag
+      responses:
+        '200':
+          description: TV shows matching the query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvShowsResult'
+        '404':
+          description: Not found
+  /api/v1/videos:
+    get:
+      summary: Get videos
+      operationId: getVideos
+      tags:
+        - videos
+      responses:
+        '200':
+          description: All videos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideosResponse'
+        '404':
+          description: Not found
+  /api/v1/collection/{collectionId}:
+    get:
+      summary: Get a collection by ID
+      operationId: getCollectionById
+      tags:
+        - collection
+      parameters:
+        - name: collectionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Collection ID
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: Collection details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+        '404':
+          description: Movie not found
+  /api/v1/tvshow/{tvShowId}:
+    get:
+      summary: Get TV Show
+      operationId: getTvShow
+      tags:
+        - tvShow
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+        - name: loadDetails
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional loadDetails flag
+      responses:
+        '200':
+          description: TV show details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvShow'
+        '404':
+          description: Not found
+    delete:
+      summary: Delete a tv show by ID
+      operationId: deleteTvShow
+      tags:
+        - tvShow
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: TV show ID
+      responses:
+        '204':
+          description: TV show deleted successfully
+        '404':
+          description: TV show not found
+    patch:
+      summary: Patch a TV show by ID
+      operationId: patchTvShow
+      tags:
+        - tvShow
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: TV show ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoPatch'
+      responses:
+        '200':
+          description: Patched tv show details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvShow'
+        '400':
+          description: Invalid patch data
+        '404':
+          description: TV show not found
+  /api/v1/tvshow/{tvShowId}/backdrops:
+    get:
+      summary: Get TV Show backdrops
+      operationId: getTvShowBackdrops
+      tags:
+        - tvShow
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: TV show details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Images'
+        '404':
+          description: Not found
+  /api/v1/tvshow/{tvShowId}/posters:
+    get:
+      summary: Get TV Show posters
+      operationId: getTvShowPosters
+      tags:
+        - tvShow
+      parameters:
+        - name: tvShowId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Optional refresh flag
+      responses:
+        '200':
+          description: TV show details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Images'
+        '404':
+          description: Not found
+components:
+  securitySchemes:
+    oauth2Profiles:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://learn.openapis.org/oauth/2.0/token
+          scopes:
+            board:read: Read the board
+            board:write: Write to the board
+        authorizationCode:
+          authorizationUrl: https://learn.openapis.org/oauth/2.0/auth
+          tokenUrl: https://learn.openapis.org/oauth/2.0/token
+          scopes:
+            board:read: Read the board
+            board:write: Write to the board
+  schemas:
+    TmdbConfigurationImages:
+      type: object
+      properties:
+        base_url:
+          type: string
+        secure_base_url:
+          type: string
+        backdrop_sizes:
+          type: array
+          items:
+            type: string
+        logo_sizes:
+          type: array
+          items:
+            type: string
+        poster_sizes:
+          type: array
+          items:
+            type: string
+        profile_sizes:
+          type: array
+          items:
+            type: string
+        still_sizes:
+          type: array
+          items:
+            type: string
+    AppConfig:
+      type: object
+      required:
+        - subscribedWatchProviders
+        - maxCards
+        - maxLightCards
+        - numberOfTopRecommendations
+        - defaultMobilePosterWidth
+        - defaultDesktopPosterWidth
+      properties:
+        images:
+          $ref: '#/components/schemas/TmdbConfigurationImages'
+        subscribedWatchProviders:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        showMovieCast:
+          type: boolean
+        showTvCast:
+          type: boolean
+        showRecommendations:
+          type: boolean
+        requireLogin:
+          type: boolean
+        oauth2Enabled:
+          type: boolean
+        useMovieBackgrounds:
+          type: boolean
+        addMediaTypeHeader:
+          type: boolean
+        darkState:
+          type: boolean
+        supportDetailCards:
+          type: boolean
+        maxCards:
+          type: integer
+        maxLightCards:
+          type: integer
+        numberOfRecommendations:
+          type: integer
+        numberOfTopRecommendations:
+          type: integer
+        defaultMobilePosterWidth:
+          type: integer
+        defaultDesktopPosterWidth:
+          type: integer
+        lowRatingThreshold:
+          type: integer
+        highRatingThreshold:
+          type: integer
+        oauth2Server:
+          type: string
+        oauth2Realm:
+          type: string
+        oauth2ClientId:
+          type: string
+        oauth2AdminRole:
+          type: string
+        oauth2UserRole:
+          type: string
+        embyBaseUrl:
+          type: string
+        wallpapers:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+    Trailer:
+      type: object
+      required:
+        - trailerKey
+      properties:
+        trailerKey:
+          type: string
+          description: YouTube video key for the trailer
+    Image:
+      type: object
+      properties:
+        aspect_ratio:
+          type: number
+          format: float
+          description: Aspect ratio of the image
+        height:
+          type: integer
+          format: int32
+          description: Height of the image in pixels
+        file_path:
+          type: string
+          description: Path or URL to the image file
+        vote_average:
+          type: number
+          format: float
+          description: Average vote for the image
+        vote_count:
+          type: integer
+          format: int32
+          description: Number of votes for the image
+        width:
+          type: integer
+          format: int32
+          description: Width of the image in pixels
+      additionalProperties: false
+    Images:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier for the images set
+        tvShowId:
+          type: integer
+          format: int64
+          description: Identifier for the TV show
+        seasonNumber:
+          type: integer
+          format: int64
+          description: Season number for the TV show images
+        backdrops:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Image'
+          description: List of backdrop images
+        logos:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Image'
+          description: List of logo images
+        posters:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Image'
+          description: List of poster images
+      additionalProperties: false
+    AbstractIdentifiable:
+      type: object
+      x-parent: true
+      properties:
+        id:
+          type: integer
+          format: int64
+      required:
+        - id
+    AbstractPoster:
+      x-parent: true
+      allOf:
+        - $ref: '#/components/schemas/AbstractIdentifiable'
+        - type: object
+          required:
+            - watched
+            - favorite
+            - onWatchlist
+          properties:
+            poster_path:
+              type: string
+              description: Path to the poster image
+            backdrop_path:
+              type: string
+              description: Path to the backdrop image
+            favorite:
+              type: boolean
+            onWatchlist:
+              type: boolean
+            watched:
+              type: boolean
+    VideoType:
+      type: string
+      enum:
+        - movie
+        - tvshow
+        - tvseason
+        - video
+      description: Type of video content
+    Genre:
+      allOf:
+        - $ref: '#/components/schemas/AbstractIdentifiable'
+        - type: object
+          required:
+            - name
+          properties:
+            genreId:
+              type: integer
+              format: int64
+              description: Internal ID for the genre
+            name:
+              type: string
+              description: Name of the genre
+    Network:
+      allOf:
+        - $ref: '#/components/schemas/AbstractIdentifiable'
+        - type: object
+          required:
+            - name
+          properties:
+            networkId:
+              type: integer
+              format: int64
+              description: Internal ID of the network
+            name:
+              type: string
+              description: Name of the network
+            logoPath:
+              type: string
+              description: Path to the network's logo
+            originCountry:
+              type: string
+              description: Country of origin for the network
+            headquarters:
+              type: string
+              description: Headquarters location
+            homepage:
+              type: string
+              format: uri
+              description: URL of the network's homepage
+    WatchProvider:
+      type: object
+      properties:
+        logoPath:
+          type: string
+          description: Path to the logo image
+        providerId:
+          type: integer
+          format: int64
+          description: Unique ID of the watch provider
+        providerName:
+          type: string
+          description: Name of the watch provider
+        displayPriority:
+          type: integer
+          description: Priority for displaying this provider
+      required:
+        - providerId
+        - providerName
+    AbstractVideo:
+      x-parent: true
+      allOf:
+        - $ref: '#/components/schemas/AbstractPoster'
+        - type: object
+          required:
+            - displayName
+            - adult
+            - tags
+            - type
+          properties:
+            type:
+              $ref: '#/components/schemas/VideoType'
+              default: movie
+            displayName:
+              type: string
+            release_date:
+              type: string
+              description: Release date of the video
+            season_number:
+              type: integer
+              format: int64
+              description: Season number (for TV episodes)
+            tvShowId:
+              type: integer
+              format: int64
+              description: ID of the parent TV show
+            overview:
+              type: string
+              description: Description or synopsis of the video
+            genres:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/Genre'
+            networks:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/Network'
+            vote_average:
+              type: integer
+              description: Average user rating
+            vote_count:
+              type: integer
+              format: int64
+              description: Number of user ratings
+            popularity:
+              type: number
+              format: float
+              description: Popularity score
+            tags:
+              type: array
+              uniqueItems: true
+              items:
+                type: string
+              description: List of tags associated with the video
+            ageRating:
+              type: string
+              description: Age rating or certification
+            runtime:
+              type: integer
+              description: Runtime in minutes
+            adult:
+              type: boolean
+              nullable: false
+              description: Whether the video is marked as adult
+            werStreamtEsId:
+              type: integer
+            imdb_id:
+              type: string
+            tvdb_id:
+              type: string
+            emby_id:
+              type: integer
+              format: int64
+            emby_server_id:
+              type: string
+            embyVideoCodecs:
+              type: array
+              items:
+                type: string
+            buyWatchProviders:
+              type: array
+              items:
+                $ref: '#/components/schemas/WatchProvider'
+            rentWatchProviders:
+              type: array
+              items:
+                $ref: '#/components/schemas/WatchProvider'
+            flatrateWatchProviders:
+              type: array
+              items:
+                $ref: '#/components/schemas/WatchProvider'
+            wikidataId:
+              type: string
+            facebookId:
+              type: string
+            instagramId:
+              type: string
+            twitterId:
+              type: string
+    AbstractPerson:
+      x-parent: true
+      allOf:
+        - $ref: '#/components/schemas/AbstractIdentifiable'
+        - type: object
+          required:
+            - name
+          properties:
+            adult:
+              type: boolean
+              description: Whether the person is an adult
+            gender:
+              type: integer
+              description: Gender of the person (typically an enum)
+            known_for_department:
+              type: string
+              description: Department the person is known for (e.g., Acting, Directing)
+            name:
+              type: string
+              description: Person’s name
+            original_name:
+              type: string
+              description: Original name of the person
+            popularity:
+              type: number
+              format: float
+              description: Popularity score
+            profile_path:
+              type: string
+              description: Path to profile image
+            credit_id:
+              type: string
+              description: Credit identifier
+    Crew:
+      allOf:
+        - $ref: '#/components/schemas/AbstractPerson'
+        - type: object
+          properties:
+            department:
+              type: string
+              description: Department the crew member belongs to
+            job:
+              type: string
+              description: Job or role of the crew member
+    Cast:
+      allOf:
+        - $ref: '#/components/schemas/AbstractPerson'
+        - type: object
+          properties:
+            cast_id:
+              type: integer
+              format: int64
+              description: Unique ID for the cast member
+            character:
+              type: string
+              description: Name of the character played by the cast member
+            order:
+              type: integer
+              description: Order of the cast member
+    Credits:
+      allOf:
+        - $ref: '#/components/schemas/AbstractIdentifiable'
+        - type: object
+          required:
+            - cast
+            - crew
+          properties:
+            cast:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/Cast'
+              description: List of cast members
+            crew:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/Crew'
+              description: List of crew members
+    AbstractRecommendation:
+      allOf:
+        - $ref: '#/components/schemas/AbstractPoster'
+        - type: object
+          required:
+            - displayName
+          properties:
+            displayName:
+              type: string
+              description: Title of the recommendation
+            vote_average:
+              type: integer
+              description: Average vote score
+            adult:
+              type: boolean
+              description: Indicates if the content is adult
+            type:
+              type: string
+              description: Type/category of the recommendation
+            emby_id:
+              type: integer
+              format: int64
+              description: Emby ID
+            emby_server_id:
+              type: string
+              description: Emby server identifier
+            tags:
+              type: array
+              uniqueItems: true
+              items:
+                type: string
+              description: List of tags
+    Recommendation:
+      allOf:
+        - $ref: '#/components/schemas/AbstractRecommendation'
+        - type: object
+          properties:
+            release_date:
+              type: string
+              description: Release date of the recommendation
+            ageRating:
+              type: string
+              description: Age rating for the recommendation
+    Recommendations:
+      type: object
+      properties:
+        movieId:
+          type: integer
+          format: int64
+          description: ID of the movie
+        page:
+          type: integer
+          description: Current page number
+        movieRecommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+          description: List of movie recommendations
+        totalPages:
+          type: integer
+          description: Total number of pages available
+        totalResults:
+          type: integer
+          description: Total number of results available
+      required:
+        - movieId
+        - movieRecommendations
+    MovieCollection:
+      allOf:
+        - $ref: '#/components/schemas/AbstractPoster'
+        - type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              description: Name of the movie collection
+    Movie:
+      allOf:
+        - $ref: '#/components/schemas/AbstractVideo'
+        - type: object
+          required:
+            - runtime
+            - release_date
+          properties:
+            directors:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/Crew'
+              description: List of directors of the movie
+            credits:
+              $ref: '#/components/schemas/Credits'
+              description: Credits information for the movie
+            recommendations:
+              $ref: '#/components/schemas/Recommendations'
+              description: Movie recommendations related to this movie
+            original_title:
+              type: string
+            runtime:
+              type: integer
+              description: Runtime of the movie in minutes
+            tagline:
+              type: string
+              description: Movie tagline or slogan
+            belongs_to_collection:
+              $ref: '#/components/schemas/MovieCollection'
+              description: Collection to which the movie belongs
+            trailerKey:
+              type: string
+              description: YouTube video key for the trailer
+    VideoPatch:
+      type: object
+      properties:
+        tag:
+          type: string
+          description: Tag associated with the video patch
+        checked:
+          type: boolean
+          description: Indicates if the patch is checked or active
+        poster_path:
+          type: string
+          description: Path to the poster image
+        backdrop_path:
+          type: string
+          description: Path to the backdrop image
+        overview:
+          type: string
+          description: Overview or summary of the video
+        imdbId:
+          type: string
+          description: IMDB identifier
+        werStreamtEsId:
+          type: integer
+          format: int32
+          description: Identifier for WerStreamtEs service
+      additionalProperties: false
+    MoviesResult:
+      type: object
+      required:
+        - movies
+      properties:
+        movies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Movie'
+    CastReference:
+      type: object
+      required:
+        - cast_id
+        - character
+      properties:
+        cast_id:
+          type: integer
+          format: int64
+          description: Unique ID for the cast member
+        character:
+          type: string
+          description: Name of the character played by the cast member
+    Person:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        profile_path:
+          type: string
+        place_of_birth:
+          type: string
+        biography:
+          type: string
+        birthday:
+          type: string
+          format: date
+        deathday:
+          type: string
+          format: date
+        gender:
+          type: integer
+          description: Gender (e.g., 1 for female, 2 for male)
+        imdb_id:
+          type: string
+        adult:
+          type: boolean
+        movieCast:
+          type: array
+          items:
+            $ref: '#/components/schemas/CastReference'
+        directedMovies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CastReference'
+        tvCast:
+          type: array
+          items:
+            $ref: '#/components/schemas/CastReference'
+    PersonPatch:
+      type: object
+      properties:
+        profile_path:
+          type: string
+          description: Path to the person's profile image
+      additionalProperties: false
+    PersonProfiles:
+      type: object
+      required:
+        - id
+        - personId
+      properties:
+        id:
+          type: integer
+          format: int64
+        personId:
+          type: integer
+          format: int64
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+    SearchResult:
+      allOf:
+        - $ref: '#/components/schemas/AbstractVideo'
+        - type: object
+          required:
+            - displayName
+          properties:
+            displayName:
+              type: string
+            genre_ids:
+              type: array
+              items:
+                type: integer
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+    TvEpisodePatch:
+      type: object
+      properties:
+        tag:
+          type: string
+        checked:
+          type: boolean
+    TvEpisode:
+      type: object
+      required:
+        - episode_number
+      properties:
+        id:
+          type: integer
+        air_date:
+          type: string
+          description: Air date of the episode
+        episode_number:
+          type: integer
+        crew:
+          type: array
+          items:
+            $ref: '#/components/schemas/Crew'
+        name:
+          type: string
+        overview:
+          type: string
+        production_code:
+          type: string
+        season_number:
+          type: integer
+        still_path:
+          type: string
+        vote_average:
+          type: number
+          format: float
+        vote_count:
+          type: integer
+        onWatchlist:
+          type: boolean
+        favorite:
+          type: boolean
+        watched:
+          type: boolean
+        tags:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+    TvSeason:
+      allOf:
+        - $ref: '#/components/schemas/AbstractVideo'
+        - type: object
+          required:
+            - tvShowId
+            - season_number
+          properties:
+            externalId:
+              type: string
+              description: Unique ID from external source
+            air_date:
+              type: string
+              description: Air date of the season
+            episode_count:
+              type: integer
+            episodes:
+              type: array
+              items:
+                $ref: '#/components/schemas/TvEpisode'
+    TvShowCast:
+      allOf:
+        - $ref: '#/components/schemas/AbstractPerson'
+        - type: object
+          properties:
+            castId:
+              type: integer
+              format: int64
+              description: ID of the cast entry
+            character:
+              type: string
+              description: Character name
+            order:
+              type: integer
+              description: Order of appearance or billing
+    TvShowCredits:
+      allOf:
+        - $ref: '#/components/schemas/AbstractIdentifiable'
+        - type: object
+          properties:
+            cast:
+              type: array
+              items:
+                $ref: '#/components/schemas/TvShowCast'
+              description: Set of TV show cast members
+    TvShowRecommendation:
+      allOf:
+        - $ref: '#/components/schemas/AbstractRecommendation'
+        - type: object
+          properties:
+            firstAirDate:
+              type: string
+              format: date
+    TvShowRecommendations:
+      type: object
+      properties:
+        movieId:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        tvShowRecommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TvShowRecommendation'
+        totalPages:
+          type: integer
+        totalResults:
+          type: integer
+    TvShow:
+      allOf:
+        - $ref: '#/components/schemas/AbstractVideo'
+        - type: object
+          properties:
+            tagline:
+              type: string
+            seasons:
+              type: array
+              items:
+                $ref: '#/components/schemas/TvSeason'
+            credits:
+              $ref: '#/components/schemas/TvShowCredits'
+            recommendations:
+              $ref: '#/components/schemas/TvShowRecommendations'
+    TvShowsResult:
+      type: object
+      required:
+        - tvShows
+      properties:
+        tvShows:
+          type: array
+          items:
+            $ref: '#/components/schemas/TvShow'
+    VideosResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/AbstractVideo'
+    CollectionPart:
+      allOf:
+        - $ref: '#/components/schemas/AbstractVideo'
+        - type: object
+          properties:
+            original_language:
+              type: string
+            original_title:
+              type: string
+            release_date:
+              type: string
+              description: Release date of the movie
+            title:
+              type: string
+              description: Title of the movie
+            video:
+              type: boolean
+    Collection:
+      allOf:
+        - $ref: '#/components/schemas/AbstractPoster'
+        - type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            overview:
+              type: string
+            parts:
+              type: array
+              items:
+                $ref: '#/components/schemas/CollectionPart'

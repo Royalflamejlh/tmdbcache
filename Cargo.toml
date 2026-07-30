@@ -1,0 +1,25 @@
+[package]
+name = "tmdbcache"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+axum = { version = "0.8.9", features = ["json", "query", "macros"] }
+chrono = "0.4.45"
+mime_guess = "2.0.5"
+notify = "8.2.0"
+percent-encoding = "2.3.2"
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "gzip", "http2", "charset", "query"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sqlx = { version = "0.9.0", default-features = false, features = ["chrono", "json", "macros", "migrate", "runtime-tokio", "sqlite-bundled", "tls-none"] }
+thiserror = "2.0.19"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "fs", "signal"] }
+tower = { version = "0.5.3", features = ["util"] }
+tower-http = { version = "0.7.0", features = ["fs", "compression-gzip", "trace", "cors"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+http-body-util = "0.1.4"

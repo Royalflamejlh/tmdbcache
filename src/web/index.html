@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Movie DB</title>
+<style>
+:root {
+  --bg: #0e1116;
+  --bg-elev: #161b22;
+  --bg-hover: #1f262f;
+  --border: #2a323d;
+  --text: #e6edf3;
+  --text-dim: #9aa7b4;
+  --accent: #4b9fea;
+  --good: #3fb950;
+  --mid: #d29922;
+  --bad: #f85149;
+  --radius: 10px;
+  --shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f8fa; --bg-elev: #fff; --bg-hover: #eef1f4; --border: #d6dde4;
+    --text: #1c2128; --text-dim: #5b6672; --shadow: 0 2px 10px rgba(0,0,0,.12);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+/* A wallpaper, when configured, sits behind everything at low contrast. */
+#wallpaper {
+  position: fixed; inset: 0; z-index: -1;
+  background-size: cover; background-position: center;
+  opacity: .18; filter: saturate(.6);
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+header {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 12px 20px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { font-weight: 700; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+.brand span { color: var(--accent); }
+nav { display: flex; gap: 4px; flex-wrap: wrap; }
+nav a {
+  padding: 6px 12px; border-radius: 999px; color: var(--text-dim);
+  font-size: 14px; font-weight: 500; transition: background .15s, color .15s;
+}
+nav a:hover { background: var(--bg-hover); color: var(--text); }
+nav a.on { background: var(--accent); color: #fff; }
+.search { margin-left: auto; display: flex; gap: 8px; }
+.search input {
+  background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 14px; border-radius: 999px; width: 240px; font: inherit; outline: none;
+}
+.search input:focus { border-color: var(--accent); }
+
+main { padding: 24px 20px 64px; max-width: 1500px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.02em; }
+h2 { font-size: 17px; margin: 32px 0 12px; letter-spacing: -.01em; }
+.sub { color: var(--text-dim); font-size: 14px; margin: 0 0 20px; }
+
+.grid {
+  display: grid; gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--poster-w, 170px), 1fr));
+}
+.card { display: block; position: relative; }
+.card .poster {
+  position: relative; aspect-ratio: 2/3; border-radius: var(--radius);
+  overflow: hidden; background: var(--bg-elev); box-shadow: var(--shadow);
+  transition: transform .18s ease;
+}
+.card:hover .poster { transform: translateY(-4px); }
+.card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card .noart {
+  display: grid; place-items: center; height: 100%; padding: 12px;
+  color: var(--text-dim); font-size: 13px; text-align: center;
+}
+.card .name {
+  margin-top: 8px; font-size: 13.5px; font-weight: 500; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card .meta { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+
+.rating {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  min-width: 30px; padding: 3px 6px; border-radius: 6px;
+  font-size: 12px; font-weight: 700; text-align: center;
+  background: rgba(0,0,0,.72); color: #fff; backdrop-filter: blur(4px);
+}
+.rating.good { color: #56d364; } .rating.mid { color: #e3b341; } .rating.bad { color: #ff7b72; }
+.flags { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; flex-direction: column; gap: 4px; }
+.flags span {
+  width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+  font-size: 12px; background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
+}
+.badge {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
+  padding: 4px 8px; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; background: rgba(0,0,0,.72); color: #fff; backdrop-filter: blur(4px);
+}
+
+/* Detail view */
+.hero { position: relative; border-radius: 14px; overflow: hidden; margin-bottom: 28px; }
+.hero .bd { position: absolute; inset: 0; }
+.hero .bd img { width: 100%; height: 100%; object-fit: cover; }
+.hero .scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg, var(--bg) 8%, color-mix(in srgb, var(--bg) 72%, transparent) 55%, transparent);
+}
+.hero .inner { position: relative; display: flex; gap: 28px; padding: 28px; flex-wrap: wrap; }
+.hero .art { width: 210px; flex-shrink: 0; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.hero .art img { width: 100%; display: block; }
+.hero .info { flex: 1 1 340px; min-width: 0; }
+.hero h1 { font-size: 30px; line-height: 1.15; }
+.tagline { color: var(--text-dim); font-style: italic; margin: 6px 0 14px; }
+.facts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--text-dim); font-size: 13.5px; margin-bottom: 16px; }
+.facts .dot { opacity: .5; }
+.pill { padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; background: var(--bg-elev); }
+.overview { max-width: 68ch; margin-bottom: 20px; }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.btn {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 14px; font-size: 13.5px; font-weight: 500; transition: background .15s, border-color .15s;
+}
+.btn:hover { background: var(--bg-hover); }
+.btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.danger:hover { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12.5px;
+  background: var(--bg-elev); border: 1px solid var(--border);
+}
+.chip button { border: 0; background: none; color: var(--text-dim); padding: 0; line-height: 1; font-size: 15px; }
+.chip button:hover { color: var(--bad); }
+.chips input {
+  background: var(--bg-elev); border: 1px dashed var(--border); color: var(--text);
+  border-radius: 999px; padding: 4px 12px; width: 130px; font: inherit; font-size: 12.5px; outline: none;
+}
+
+/* Horizontal scrollers for cast and recommendations */
+.strip { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
+.strip > * { flex: 0 0 var(--strip-w, 124px); }
+.face { text-align: center; }
+.face .ring { aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: var(--bg-elev); box-shadow: var(--shadow); }
+.face .ring img { width: 100%; height: 100%; object-fit: cover; }
+.face .ring .noart { border-radius: 50%; }
+.face .nm { font-size: 12.5px; font-weight: 500; margin-top: 8px; }
+.face .ch { font-size: 11.5px; color: var(--text-dim); }
+
+/* Seasons and episodes */
+.seasons { display: flex; flex-direction: column; gap: 10px; }
+.season {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-elev); overflow: hidden;
+}
+.season > summary {
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  cursor: pointer; list-style: none;
+}
+.season > summary::-webkit-details-marker { display: none; }
+.season summary img { width: 44px; border-radius: 6px; }
+.season .st { font-weight: 600; }
+.season .ss { color: var(--text-dim); font-size: 12.5px; }
+.season .sp { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.eps { border-top: 1px solid var(--border); }
+.ep { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.ep:last-child { border-bottom: 0; }
+.ep.seen { opacity: .55; }
+.ep .n { color: var(--text-dim); font-variant-numeric: tabular-nums; width: 2.5em; text-align: right; flex-shrink: 0; }
+.ep .t { font-weight: 500; }
+.ep .o { color: var(--text-dim); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ep .body { min-width: 0; flex: 1; }
+.ep .tick { flex-shrink: 0; }
+
+.msg { padding: 48px 20px; text-align: center; color: var(--text-dim); }
+.msg h2 { margin-top: 0; color: var(--text); }
+.spinner {
+  width: 26px; height: 26px; margin: 48px auto; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-elev); border: 1px solid var(--border); box-shadow: var(--shadow);
+  padding: 10px 18px; border-radius: 999px; z-index: 60; font-size: 14px;
+}
+.toast.err { border-color: var(--bad); color: var(--bad); }
+.providers { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.providers img { width: 34px; height: 34px; border-radius: 8px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.filters select {
+  background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 13.5px;
+}
+@media (max-width: 640px) {
+  .search input { width: 150px; }
+  .hero .art { width: 130px; }
+  .hero h1 { font-size: 23px; }
+  .hero .inner { padding: 18px; gap: 18px; }
+}
+</style>
+</head>
+<body>
+<div id="wallpaper"></div>
+
+<header>
+  <div class="brand">Movie<span>DB</span></div>
+  <nav id="nav"></nav>
+  <form class="search" id="searchForm">
+    <input id="searchInput" type="search" placeholder="Search TMDB…" autocomplete="off">
+  </form>
+</header>
+
+<main id="app"><div class="spinner"></div></main>
+
+<script>
+"use strict";
+
+const app = document.getElementById("app");
+let CONFIG = null;
+
+/* ---------- helpers ---------- */
+
+// All interpolated TMDB text goes through this; the API returns user- and
+// third-party-supplied strings.
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+));
+
+// Images are always fetched through the backend so they land in the disk cache.
+const img = (path, size) => path
+  ? `/api/v1/images?imagePath=${encodeURIComponent(path)}&backdropSize=${encodeURIComponent(size)}`
+  : null;
+
+const year = (d) => (d && d.length >= 4 ? d.slice(0, 4) : "");
+
+const runtime = (m) => {
+  if (!m) return "";
+  const h = Math.floor(m / 60), r = m % 60;
+  return h ? `${h}h ${r}m` : `${r}m`;
+};
+
+const ratingClass = (v) => {
+  if (v == null) return "";
+  if (v >= (CONFIG?.highRatingThreshold ?? 70)) return "good";
+  if (v <= (CONFIG?.lowRatingThreshold ?? 40)) return "bad";
+  return "mid";
+};
+
+function toast(message, isError) {
+  const el = document.createElement("div");
+  el.className = "toast" + (isError ? " err" : "");
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), isError ? 5000 : 2200);
+}
+
+async function api(path, options) {
+  const response = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (response.status === 204) return null;
+  const text = await response.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { /* non-JSON error body */ }
+  if (!response.ok) {
+    throw new Error(body?.message || `${response.status} ${response.statusText}`);
+  }
+  return body;
+}
+
+const busy = () => { app.innerHTML = '<div class="spinner"></div>'; };
+
+function fail(err) {
+  app.innerHTML = `<div class="msg"><h2>Something went wrong</h2><p>${esc(err.message)}</p></div>`;
+}
+
+/* ---------- reusable fragments ---------- */
+
+function posterCard(item, href, kindLabel) {
+  const rating = item.vote_average;
+  const art = img(item.poster_path, "w342");
+  const flags = [
+    item.watched ? "<span title='Watched'>✓</span>" : "",
+    item.favorite ? "<span title='Favorite'>★</span>" : "",
+    item.onWatchlist ? "<span title='On watchlist'>🔖</span>" : "",
+  ].join("");
+
+  return `<a class="card" href="${href}">
+    <div class="poster">
+      ${rating != null ? `<div class="rating ${ratingClass(rating)}">${rating}</div>` : ""}
+      ${flags ? `<div class="flags">${flags}</div>` : ""}
+      ${kindLabel && CONFIG?.addMediaTypeHeader ? `<div class="badge">${esc(kindLabel)}</div>` : ""}
+      ${art
+        ? `<img loading="lazy" src="${art}" alt="${esc(item.displayName)}">`
+        : `<div class="noart">${esc(item.displayName)}</div>`}
+    </div>
+    <div class="name">${esc(item.displayName)}</div>
+    <div class="meta">${esc(year(item.release_date) || year(item.firstAirDate) || "")}</div>
+  </a>`;
+}
+
+const KIND_LABEL = { movie: "Movie", tvshow: "TV", tvseason: "Season", video: "Video" };
+
+function hrefFor(item) {
+  switch (item.type) {
+    case "tvshow": return `#/tv/${item.id}`;
+    case "tvseason": return `#/tv/${item.tvShowId}/season/${item.season_number}`;
+    default: return `#/movie/${item.id}`;
+  }
+}
+
+function grid(items, kindLabel) {
+  if (!items.length) {
+    return `<div class="msg"><h2>Nothing here yet</h2>
+      <p>Search TMDB above to add something to your library.</p></div>`;
+  }
+  const width = CONFIG?.defaultDesktopPosterWidth || 170;
+  return `<div class="grid" style="--poster-w:${width}px">
+    ${items.map((i) => posterCard(i, hrefFor(i), kindLabel ?? KIND_LABEL[i.type])).join("")}
+  </div>`;
+}
+
+function faceCard(person, subtitle) {
+  const art = img(person.profile_path, "w185");
+  return `<a class="face" href="#/person/${person.id}">
+    <div class="ring">${art
+      ? `<img loading="lazy" src="${art}" alt="${esc(person.name)}">`
+      : `<div class="noart">${esc(person.name)}</div>`}</div>
+    <div class="nm">${esc(person.name)}</div>
+    ${subtitle ? `<div class="ch">${esc(subtitle)}</div>` : ""}
+  </a>`;
+}
+
+function providerRow(label, list) {
+  if (!list?.length) return "";
+  return `<div class="facts"><span class="pill">${esc(label)}</span>
+    <div class="providers">${list.map((p) => {
+      const art = img(p.logoPath, "w92");
+      return art
+        ? `<img src="${art}" alt="${esc(p.providerName)}" title="${esc(p.providerName)}">`
+        : `<span class="pill">${esc(p.providerName)}</span>`;
+    }).join("")}</div></div>`;
+}
+
+/* Tag + flag editor, shared by movies, shows and seasons. */
+function tagEditor(kind, item) {
+  const reserved = new Set(["favorite", "watched", "onWatchlist"]);
+  const tags = (item.tags || []).filter((t) => !reserved.has(t));
+  return `<div class="chips" data-tags="${esc(kind)}:${item.id}">
+    ${tags.map((t) => `<span class="chip">${esc(t)}
+      <button data-untag="${esc(t)}" title="Remove tag">×</button></span>`).join("")}
+    <input data-tag-input placeholder="+ add tag">
+  </div>`;
+}
+
+function flagButtons(item) {
+  return `<button class="btn ${item.watched ? "on" : ""}" data-flag="watched">
+      ${item.watched ? "✓ Watched" : "Mark watched"}</button>
+    <button class="btn ${item.favorite ? "on" : ""}" data-flag="favorite">
+      ${item.favorite ? "★ Favorite" : "☆ Favorite"}</button>
+    <button class="btn ${item.onWatchlist ? "on" : ""}" data-flag="onWatchlist">
+      ${item.onWatchlist ? "🔖 On watchlist" : "Add to watchlist"}</button>`;
+}
+
+/* ---------- views ---------- */
+
+async function viewLibrary(params) {
+  busy();
+  const tag = params.get("tag") || null;
+  const query = tag ? `?tag=${encodeURIComponent(tag)}` : "";
+  const { movies } = await api(`/api/v1/movies${query}`);
+  const tags = [...new Set(movies.flatMap((m) => m.tags || []))]
+    .filter((t) => !["favorite", "watched", "onWatchlist"].includes(t)).sort();
+
+  app.innerHTML = `<h1>Movies</h1>
+    <p class="sub">${movies.length} in your library</p>
+    ${tags.length ? `<div class="filters">
+      <select id="tagFilter">
+        <option value="">All tags</option>
+        ${tags.map((t) => `<option value="${esc(t)}" ${t === tag ? "selected" : ""}>${esc(t)}</option>`).join("")}
+      </select>
+    </div>` : ""}
+    ${grid(movies, "Movie")}`;
+
+  document.getElementById("tagFilter")?.addEventListener("change", (e) => {
+    location.hash = e.target.value ? `#/?tag=${encodeURIComponent(e.target.value)}` : "#/";
+  });
+}
+
+async function viewTvShows() {
+  busy();
+  const { tvShows } = await api("/api/v1/tvshows");
+  app.innerHTML = `<h1>TV Shows</h1>
+    <p class="sub">${tvShows.length} in your library</p>
+    ${grid(tvShows, "TV")}`;
+}
+
+async function viewAllVideos() {
+  busy();
+  const videos = await api("/api/v1/videos");
+  app.innerHTML = `<h1>Everything</h1>
+    <p class="sub">${videos.length} titles</p>${grid(videos)}`;
+}
+
+async function viewFavorites() {
+  busy();
+  const { movies } = await api("/api/v1/movies/favorites");
+  app.innerHTML = `<h1>Favorites</h1>
+    <p class="sub">${movies.length} favorite movies</p>${grid(movies, "Movie")}`;
+}
+
+async function viewWatchlist() {
+  busy();
+  const videos = await api("/api/v1/videos");
+  const items = videos.filter((v) => v.onWatchlist);
+  app.innerHTML = `<h1>Watchlist</h1>
+    <p class="sub">${items.length} to watch</p>${grid(items)}`;
+}
+
+async function viewDiscover() {
+  busy();
+  const { movies } = await api("/api/v1/movies/topRecommendations");
+  app.innerHTML = `<h1>Discover</h1>
+    <p class="sub">Recommended by titles already in your library, and not yet held</p>
+    ${movies.length
+      ? grid(movies, "Movie")
+      : `<div class="msg"><h2>No recommendations yet</h2>
+          <p>Add a few movies and their TMDB recommendations will pool here.</p></div>`}`;
+}
+
+async function viewSearch(params) {
+  const query = params.get("q") || "";
+  document.getElementById("searchInput").value = query;
+  if (!query.trim()) { app.innerHTML = `<div class="msg"><h2>Type something to search</h2></div>`; return; }
+
+  busy();
+  const { results } = await api(`/api/v1/search/tmdb?query=${encodeURIComponent(query)}`);
+  const cards = results.filter((r) => r.type === "movie" || r.type === "tvshow");
+
+  app.innerHTML = `<h1>Results for “${esc(query)}”</h1>
+    <p class="sub">${cards.length} match${cards.length === 1 ? "" : "es"} on TMDB — open one to add it</p>
+    ${cards.length ? grid(cards) : `<div class="msg"><h2>Nothing found</h2></div>`}`;
+}
+
+async function viewMovie(id) {
+  busy();
+  // loadDetails pulls credits, recommendations and artwork in one go.
+  const movie = await api(`/api/v1/movie/${id}?loadDetails=true`);
+  renderMovie(movie);
+}
+
+function renderMovie(movie) {
+  const backdrop = img(movie.backdrop_path, "w1280");
+  const poster = img(movie.poster_path, "w342");
+  const genres = (movie.genres || []).map((g) => g.name).join(", ");
+  const recs = movie.recommendations?.movieRecommendations || [];
+  const cast = movie.credits?.cast || [];
+
+  app.innerHTML = `
+  <div class="hero">
+    ${backdrop ? `<div class="bd"><img src="${backdrop}" alt=""></div>` : ""}
+    <div class="scrim"></div>
+    <div class="inner">
+      ${poster ? `<div class="art"><img src="${poster}" alt="${esc(movie.displayName)}"></div>` : ""}
+      <div class="info">
+        <h1>${esc(movie.displayName)}</h1>
+        ${movie.tagline ? `<div class="tagline">${esc(movie.tagline)}</div>` : ""}
+        <div class="facts">
+          ${movie.vote_average != null
+            ? `<span class="rating ${ratingClass(movie.vote_average)}" style="position:static">${movie.vote_average}</span>` : ""}
+          ${year(movie.release_date) ? `<span>${year(movie.release_date)}</span><span class="dot">·</span>` : ""}
+          ${movie.runtime ? `<span>${runtime(movie.runtime)}</span><span class="dot">·</span>` : ""}
+          ${movie.ageRating ? `<span class="pill">${esc(movie.ageRating)}</span>` : ""}
+          ${genres ? `<span>${esc(genres)}</span>` : ""}
+        </div>
+        ${movie.overview ? `<p class="overview">${esc(movie.overview)}</p>` : ""}
+        ${providerRow("Stream", movie.flatrateWatchProviders)}
+        ${providerRow("Rent", movie.rentWatchProviders)}
+        <div class="actions">
+          ${flagButtons(movie)}
+          ${movie.trailerKey
+            ? `<a class="btn primary" target="_blank" rel="noreferrer noopener"
+                 href="https://www.youtube.com/watch?v=${encodeURIComponent(movie.trailerKey)}">▶ Trailer</a>` : ""}
+          ${movie.imdb_id
+            ? `<a class="btn" target="_blank" rel="noreferrer noopener"
+                 href="https://www.imdb.com/title/${encodeURIComponent(movie.imdb_id)}/">IMDb</a>` : ""}
+          <button class="btn" data-refresh>↻ Refresh</button>
+          <button class="btn danger" data-delete>Remove</button>
+        </div>
+        ${tagEditor("movie", movie)}
+        ${movie.belongs_to_collection
+          ? `<p class="sub" style="margin-top:16px">Part of
+              <a href="#/collection/${movie.belongs_to_collection.id}" style="color:var(--accent)">
+                ${esc(movie.belongs_to_collection.name)}</a></p>` : ""}
+      </div>
+    </div>
+  </div>
+
+  ${movie.directors?.length ? `<h2>Directed by</h2>
+    <div class="strip">${movie.directors.map((d) => faceCard(d, d.job)).join("")}</div>` : ""}
+
+  ${cast.length ? `<h2>Cast</h2>
+    <div class="strip">${cast.map((c) => faceCard(c, c.character)).join("")}</div>` : ""}
+
+  ${recs.length ? `<h2>Recommended</h2>
+    <div class="grid" style="--poster-w:150px">
+      ${recs.map((r) => posterCard(r, `#/movie/${r.id}`, "Movie")).join("")}
+    </div>` : ""}
+  `;
+
+  wireDetail("movie", movie.id, () => viewMovie(movie.id), `#/`);
+}
+
+async function viewTvShow(id) {
+  busy();
+  const show = await api(`/api/v1/tvshow/${id}?loadDetails=true`);
+  const backdrop = img(show.backdrop_path, "w1280");
+  const poster = img(show.poster_path, "w342");
+  const genres = (show.genres || []).map((g) => g.name).join(", ");
+  const cast = show.credits?.cast || [];
+  const recs = show.recommendations?.tvShowRecommendations || [];
+  const networks = (show.networks || []).map((n) => n.name).join(", ");
+
+  app.innerHTML = `
+  <div class="hero">
+    ${backdrop ? `<div class="bd"><img src="${backdrop}" alt=""></div>` : ""}
+    <div class="scrim"></div>
+    <div class="inner">
+      ${poster ? `<div class="art"><img src="${poster}" alt="${esc(show.displayName)}"></div>` : ""}
+      <div class="info">
+        <h1>${esc(show.displayName)}</h1>
+        ${show.tagline ? `<div class="tagline">${esc(show.tagline)}</div>` : ""}
+        <div class="facts">
+          ${show.vote_average != null
+            ? `<span class="rating ${ratingClass(show.vote_average)}" style="position:static">${show.vote_average}</span>` : ""}
+          ${year(show.release_date) ? `<span>${year(show.release_date)}</span><span class="dot">·</span>` : ""}
+          ${show.ageRating ? `<span class="pill">${esc(show.ageRating)}</span>` : ""}
+          ${genres ? `<span>${esc(genres)}</span>` : ""}
+          ${networks ? `<span class="dot">·</span><span>${esc(networks)}</span>` : ""}
+        </div>
+        ${show.overview ? `<p class="overview">${esc(show.overview)}</p>` : ""}
+        ${providerRow("Stream", show.flatrateWatchProviders)}
+        <div class="actions">
+          ${flagButtons(show)}
+          ${show.trailerKey
+            ? `<a class="btn primary" target="_blank" rel="noreferrer noopener"
+                 href="https://www.youtube.com/watch?v=${encodeURIComponent(show.trailerKey)}">▶ Trailer</a>` : ""}
+          <button class="btn" data-refresh>↻ Refresh</button>
+          <button class="btn danger" data-delete>Remove</button>
+        </div>
+        ${tagEditor("tvshow", show)}
+      </div>
+    </div>
+  </div>
+
+  <h2>Seasons</h2>
+  <div class="seasons">
+    ${(show.seasons || []).map((s) => `
+      <details class="season" data-season="${s.season_number}">
+        <summary>
+          ${img(s.poster_path, "w92") ? `<img src="${img(s.poster_path, "w92")}" alt="">` : ""}
+          <div>
+            <div class="st">${esc(s.displayName)}</div>
+            <div class="ss">${s.episode_count ? `${s.episode_count} episodes` : ""}
+              ${s.air_date ? ` · ${esc(year(s.air_date))}` : ""}</div>
+          </div>
+          <div class="sp">
+            ${s.watched ? `<span class="pill">✓ Watched</span>` : ""}
+            <span class="ss">▾</span>
+          </div>
+        </summary>
+        <div class="eps"><div class="spinner" style="margin:24px auto"></div></div>
+      </details>`).join("")}
+  </div>
+
+  ${cast.length ? `<h2>Cast</h2>
+    <div class="strip">${cast.map((c) => faceCard(c, c.character)).join("")}</div>` : ""}
+
+  ${recs.length ? `<h2>Recommended</h2>
+    <div class="grid" style="--poster-w:150px">
+      ${recs.map((r) => posterCard(r, `#/tv/${r.id}`, "TV")).join("")}
+    </div>` : ""}
+  `;
+
+  wireDetail("tvshow", show.id, () => viewTvShow(show.id), "#/tv");
+
+  // Episodes load only when a season is expanded, so a 10-season show does not
+  // trigger 10 TMDB season fetches up front.
+  app.querySelectorAll("details.season").forEach((details) => {
+    details.addEventListener("toggle", async () => {
+      if (!details.open || details.dataset.loaded) return;
+      details.dataset.loaded = "1";
+      const seasonNumber = details.dataset.season;
+      const target = details.querySelector(".eps");
+      try {
+        const season = await api(`/api/v1/tvseason/${id}/${seasonNumber}`);
+        renderEpisodes(target, id, seasonNumber, season);
+      } catch (err) {
+        target.innerHTML = `<div class="msg">${esc(err.message)}</div>`;
+        delete details.dataset.loaded;
+      }
+    });
+  });
+}
+
+function renderEpisodes(target, showId, seasonNumber, season) {
+  const episodes = season.episodes || [];
+  target.innerHTML = `
+    <div class="ep" style="background:var(--bg)">
+      <div class="body"><div class="ss" style="color:var(--text-dim)">
+        ${episodes.length} episodes</div></div>
+      <button class="btn" data-season-all="1">Mark all watched</button>
+      <button class="btn" data-season-all="0">Clear</button>
+    </div>
+    ${episodes.map((e) => `
+      <div class="ep ${e.watched ? "seen" : ""}" data-ep="${e.episode_number}">
+        <div class="n">${e.episode_number}</div>
+        <div class="body">
+          <div class="t">${esc(e.name || `Episode ${e.episode_number}`)}</div>
+          ${e.air_date || e.vote_average
+            ? `<div class="ss" style="color:var(--text-dim)">
+                ${esc(e.air_date || "")}${e.vote_average ? ` · ★ ${e.vote_average.toFixed(1)}` : ""}</div>` : ""}
+          ${e.overview ? `<div class="o">${esc(e.overview)}</div>` : ""}
+        </div>
+        <button class="btn tick ${e.watched ? "on" : ""}" data-ep-watched="${e.episode_number}">
+          ${e.watched ? "✓" : "Mark"}</button>
+      </div>`).join("")}`;
+
+  target.querySelectorAll("[data-ep-watched]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const episodeNumber = button.dataset.epWatched;
+      const on = !button.classList.contains("on");
+      try {
+        await api(`/api/v1/tvepisode/${showId}/${seasonNumber}/${episodeNumber}`, {
+          method: "PATCH",
+          body: JSON.stringify({ tag: "watched", checked: on }),
+        });
+        button.classList.toggle("on", on);
+        button.textContent = on ? "✓" : "Mark";
+        button.closest(".ep").classList.toggle("seen", on);
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+
+  target.querySelectorAll("[data-season-all]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const watched = button.dataset.seasonAll === "1";
+      try {
+        const updated = await api(`/api/v1/tvseason/${showId}/${seasonNumber}/watched`, {
+          method: "PATCH",
+          body: JSON.stringify({ watched }),
+        });
+        renderEpisodes(target, showId, seasonNumber, updated);
+        toast(watched ? "Season marked watched" : "Season cleared");
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+}
+
+async function viewSeason(showId, seasonNumber) {
+  busy();
+  const season = await api(`/api/v1/tvseason/${showId}/${seasonNumber}`);
+  const poster = img(season.poster_path, "w342");
+
+  app.innerHTML = `
+    <p class="sub"><a href="#/tv/${showId}" style="color:var(--accent)">← Back to show</a></p>
+    <div class="hero"><div class="scrim"></div><div class="inner">
+      ${poster ? `<div class="art"><img src="${poster}" alt=""></div>` : ""}
+      <div class="info">
+        <h1>${esc(season.displayName)}</h1>
+        <div class="facts">
+          ${season.air_date ? `<span>${esc(season.air_date)}</span>` : ""}
+          ${season.episode_count ? `<span class="dot">·</span><span>${season.episode_count} episodes</span>` : ""}
+        </div>
+        ${season.overview ? `<p class="overview">${esc(season.overview)}</p>` : ""}
+        <div class="actions">${flagButtons(season)}
+          <button class="btn" data-refresh>↻ Refresh</button></div>
+        ${tagEditor("tvseason", season)}
+      </div>
+    </div></div>
+    <h2>Episodes</h2>
+    <div class="season"><div class="eps"></div></div>`;
+
+  renderEpisodes(app.querySelector(".eps"), showId, seasonNumber, season);
+
+  // Season flags patch through the season endpoint, which is keyed by
+  // show id + season number rather than the season's own id.
+  app.querySelectorAll("[data-flag]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const tag = button.dataset.flag;
+      const on = !button.classList.contains("on");
+      try {
+        await api(`/api/v1/tvseason/${showId}/${seasonNumber}`, {
+          method: "PATCH",
+          body: JSON.stringify({ tag, checked: on }),
+        });
+        viewSeason(showId, seasonNumber);
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+  app.querySelector("[data-refresh]")?.addEventListener("click", async () => {
+    busy();
+    try {
+      await api(`/api/v1/tvseason/${showId}/${seasonNumber}?refresh=true`);
+      viewSeason(showId, seasonNumber);
+    } catch (err) { fail(err); }
+  });
+  wireTags(`tvseason`, null, () => viewSeason(showId, seasonNumber),
+    (body) => api(`/api/v1/tvseason/${showId}/${seasonNumber}`, { method: "PATCH", body }));
+}
+
+async function viewPerson(id) {
+  busy();
+  const person = await api(`/api/v1/person/${id}`);
+  const profile = img(person.profile_path, "w342");
+
+  // Cross-references carry ids only, so the titles are resolved from the library.
+  const resolve = async (refs, endpoint) => Promise.all(
+    (refs || []).map(async (ref) => {
+      try {
+        const item = await api(`${endpoint}/${ref.cast_id}`);
+        return { item, role: ref.character };
+      } catch { return null; }
+    })
+  ).then((list) => list.filter(Boolean));
+
+  const [movies, directed, shows] = await Promise.all([
+    resolve(person.movieCast, "/api/v1/movie"),
+    resolve(person.directedMovies, "/api/v1/movie"),
+    resolve(person.tvCast, "/api/v1/tvshow"),
+  ]);
+
+  const section = (title, list) => list.length
+    ? `<h2>${esc(title)}</h2><div class="grid" style="--poster-w:150px">
+        ${list.map(({ item, role }) => `
+          <div>${posterCard(item, hrefFor(item), KIND_LABEL[item.type])}
+          ${role ? `<div class="meta" style="color:var(--text-dim);font-size:12px">${esc(role)}</div>` : ""}</div>
+        `).join("")}</div>`
+    : "";
+
+  app.innerHTML = `
+    <div class="hero"><div class="scrim"></div><div class="inner">
+      ${profile ? `<div class="art"><img src="${profile}" alt="${esc(person.name)}"></div>` : ""}
+      <div class="info">
+        <h1>${esc(person.name || "Unknown")}</h1>
+        <div class="facts">
+          ${person.birthday ? `<span>Born ${esc(person.birthday)}</span>` : ""}
+          ${person.deathday ? `<span class="dot">·</span><span>Died ${esc(person.deathday)}</span>` : ""}
+          ${person.place_of_birth ? `<span class="dot">·</span><span>${esc(person.place_of_birth)}</span>` : ""}
+        </div>
+        ${person.biography ? `<p class="overview">${esc(person.biography)}</p>` : ""}
+        <div class="actions">
+          ${person.imdb_id
+            ? `<a class="btn" target="_blank" rel="noreferrer noopener"
+                 href="https://www.imdb.com/name/${encodeURIComponent(person.imdb_id)}/">IMDb</a>` : ""}
+          <button class="btn" data-refresh>↻ Refresh</button>
+        </div>
+      </div>
+    </div></div>
+    ${section("In your library", movies)}
+    ${section("Directed", directed)}
+    ${section("TV appearances", shows)}
+    ${!movies.length && !directed.length && !shows.length
+      ? `<div class="msg"><p>No titles in your library feature this person yet.</p></div>` : ""}`;
+
+  app.querySelector("[data-refresh]")?.addEventListener("click", async () => {
+    busy();
+    try { await api(`/api/v1/person/${id}?refresh=true`); viewPerson(id); }
+    catch (err) { fail(err); }
+  });
+}
+
+async function viewCollection(id) {
+  busy();
+  const collection = await api(`/api/v1/collection/${id}`);
+  const backdrop = img(collection.backdrop_path, "w1280");
+
+  app.innerHTML = `
+    <div class="hero">
+      ${backdrop ? `<div class="bd"><img src="${backdrop}" alt=""></div>` : ""}
+      <div class="scrim"></div>
+      <div class="inner"><div class="info">
+        <h1>${esc(collection.name)}</h1>
+        ${collection.overview ? `<p class="overview">${esc(collection.overview)}</p>` : ""}
+      </div></div>
+    </div>
+    <h2>${(collection.parts || []).length} films</h2>
+    ${grid(collection.parts || [], "Movie")}`;
+}
+
+/* ---------- shared detail wiring ---------- */
+
+function wireTags(kind, id, reload, patch) {
+  const container = app.querySelector("[data-tags]");
+  if (!container) return;
+
+  const send = async (tag, checked) => {
+    try {
+      await patch(JSON.stringify({ tag, checked }));
+      reload();
+    } catch (err) { toast(err.message, true); }
+  };
+
+  container.querySelectorAll("[data-untag]").forEach((button) => {
+    button.addEventListener("click", () => send(button.dataset.untag, false));
+  });
+
+  const input = container.querySelector("[data-tag-input]");
+  input?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const value = input.value.trim();
+    if (value) send(value, true);
+  });
+}
+
+/** Hooks up flag toggles, tag editing, refresh and delete on a detail view. */
+function wireDetail(kind, id, reload, afterDeleteHash) {
+  const endpoint = kind === "movie" ? `/api/v1/movie/${id}` : `/api/v1/tvshow/${id}`;
+
+  app.querySelectorAll("[data-flag]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const on = !button.classList.contains("on");
+      try {
+        await api(endpoint, {
+          method: "PATCH",
+          body: JSON.stringify({ tag: button.dataset.flag, checked: on }),
+        });
+        reload();
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+
+  wireTags(kind, id, reload, (body) => api(endpoint, { method: "PATCH", body }));
+
+  app.querySelector("[data-refresh]")?.addEventListener("click", async () => {
+    busy();
+    try {
+      await api(`${endpoint}?refresh=true&loadDetails=true`);
+      reload();
+      toast("Refreshed from TMDB");
+    } catch (err) { fail(err); }
+  });
+
+  app.querySelector("[data-delete]")?.addEventListener("click", async () => {
+    if (!confirm("Remove this title from your library? Cached metadata will be deleted.")) return;
+    try {
+      await api(endpoint, { method: "DELETE" });
+      toast("Removed from library");
+      location.hash = afterDeleteHash;
+    } catch (err) { toast(err.message, true); }
+  });
+}
+
+/* ---------- routing ---------- */
+
+const NAV = [
+  ["#/", "Movies"],
+  ["#/tv", "TV"],
+  ["#/videos", "All"],
+  ["#/favorites", "Favorites"],
+  ["#/watchlist", "Watchlist"],
+  ["#/discover", "Discover"],
+];
+
+function renderNav() {
+  const current = location.hash || "#/";
+  document.getElementById("nav").innerHTML = NAV.map(([href, label]) =>
+    `<a href="${href}" class="${href === current.split("?")[0] ? "on" : ""}">${label}</a>`
+  ).join("");
+}
+
+async function route() {
+  renderNav();
+  const raw = (location.hash || "#/").slice(1);
+  const [path, search] = raw.split("?");
+  const params = new URLSearchParams(search || "");
+  const parts = path.split("/").filter(Boolean);
+
+  try {
+    if (!parts.length) return await viewLibrary(params);
+    switch (parts[0]) {
+      case "tv":
+        if (parts.length === 1) return await viewTvShows();
+        if (parts[2] === "season") return await viewSeason(parts[1], parts[3]);
+        return await viewTvShow(parts[1]);
+      case "videos": return await viewAllVideos();
+      case "favorites": return await viewFavorites();
+      case "watchlist": return await viewWatchlist();
+      case "discover": return await viewDiscover();
+      case "search": return await viewSearch(params);
+      case "movie": return await viewMovie(parts[1]);
+      case "person": return await viewPerson(parts[1]);
+      case "collection": return await viewCollection(parts[1]);
+      default:
+        app.innerHTML = `<div class="msg"><h2>Page not found</h2>
+          <p><a href="#/" style="color:var(--accent)">Back to library</a></p></div>`;
+    }
+  } catch (err) {
+    fail(err);
+  }
+}
+
+document.getElementById("searchForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const query = document.getElementById("searchInput").value.trim();
+  location.hash = query ? `#/search?q=${encodeURIComponent(query)}` : "#/";
+});
+
+window.addEventListener("hashchange", route);
+
+(async function start() {
+  try {
+    CONFIG = await api("/api/v1/tmdb/configuration");
+  } catch (err) {
+    // The UI still works without configuration; only the tuning values are lost.
+    console.warn("could not load configuration", err);
+    CONFIG = {};
+  }
+
+  const wallpapers = CONFIG.wallpapers || [];
+  if (wallpapers.length) {
+    const pick = wallpapers[Math.floor(Math.random() * wallpapers.length)];
+    document.getElementById("wallpaper").style.backgroundImage =
+      `url("/api/v1/images/wallpaper/${encodeURIComponent(pick)}")`;
+  }
+
+  route();
+})();
+</script>
+</body>
+</html>

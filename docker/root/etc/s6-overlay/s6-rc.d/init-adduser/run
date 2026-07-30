@@ -1,0 +1,28 @@
+#!/command/with-contenv bash
+# Aligns the in-container `abc` user with the host ids the operator asked for.
+#
+# This is the crux of the LinuxServer.io convention: rather than making the user
+# chown their bind mounts to whatever uid the image picked, the image moves its
+# own user to match theirs. `docker run -e PUID=$(id -u) -e PGID=$(id -g)` then
+# just works, and the app still never runs as root.
+
+PUID=${PUID:-911}
+PGID=${PGID:-911}
+
+if [[ ! ${PUID} =~ ^[0-9]+$ ]] || [[ ! ${PGID} =~ ^[0-9]+$ ]]; then
+    echo "FATAL: PUID/PGID must be numeric (got PUID='${PUID}' PGID='${PGID}')"
+    # Exit non-zero so S6_BEHAVIOUR_IF_STAGE2_FAILS stops the container rather
+    # than starting the server with surprising ownership.
+    exit 1
+fi
+
+# `-o` permits duplicate ids, which is normal when matching an existing host user.
+groupmod -o -g "${PGID}" abc
+usermod -o -u "${PUID}" abc
+
+cat <<BANNER
+ User UID:     $(id -u abc)
+ User GID:     $(id -g abc)
+ Umask:        ${UMASK:-022 (default)}
+────────────────────────────────────────────────────
+BANNER

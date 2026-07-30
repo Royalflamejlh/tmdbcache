@@ -1,0 +1,240 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  # Decides where this run may push. Keeping it in one place means the build and
+  # merge jobs never disagree, and the workflow still succeeds (build-only)
+  # before any Docker Hub credentials have been added.
+  config:
+    name: Resolve targets
+    runs-on: ubuntu-latest
+    outputs:
+      push: ${{ steps.resolve.outputs.push }}
+      dockerhub_image: ${{ steps.resolve.outputs.dockerhub_image }}
+      images: ${{ steps.resolve.outputs.images }}
+    steps:
+      - name: Resolve push targets
+        id: resolve
+        env:
+          # Set repository variable DOCKERHUB_REPOSITORY to e.g. "youruser/tmdbcache".
+          DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
+          HAS_DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+          HAS_DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        run: |
+          set -euo pipefail
+
+          # Pull requests build but never publish — they may come from forks.
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            push=false
+          else
+            push=true
+          fi
+
+          dockerhub_image=""
+          if [[ -n "${DOCKERHUB_REPOSITORY}" \
+                && "${HAS_DOCKERHUB_TOKEN}" == "true" \
+                && "${HAS_DOCKERHUB_USER}" == "true" ]]; then
+            dockerhub_image="docker.io/${DOCKERHUB_REPOSITORY}"
+          else
+            echo "::notice::Docker Hub not configured; publishing to GHCR only." \
+                 "Set the DOCKERHUB_REPOSITORY variable plus DOCKERHUB_USERNAME" \
+                 "and DOCKERHUB_TOKEN secrets to enable it."
+          fi
+
+          images="${GHCR_IMAGE}"
+          if [[ -n "${dockerhub_image}" ]]; then
+            images="${images},${dockerhub_image}"
+          fi
+
+          {
+            echo "push=${push}"
+            echo "dockerhub_image=${dockerhub_image}"
+            echo "images=${images}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Push: ${push}"
+          echo "Images: ${images}"
+
+  # Each architecture is built on a runner of that architecture. Emulating arm64
+  # under QEMU turns a ~3 minute Rust build into a ~40 minute one, so native
+  # runners are worth the extra manifest-merge step below.
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: config
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Derive a filename-safe platform label
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: needs.config.outputs.push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: needs.config.outputs.push == 'true' && needs.config.outputs.dockerhub_image != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ needs.config.outputs.images }}
+
+      # Pushing by digest rather than by tag lets the merge job below assemble one
+      # manifest list from both architectures. The digest is content-addressed, so
+      # the same digest lands in every registry we pushed to.
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          outputs: type=image,"name=${{ needs.config.outputs.images }}",push-by-digest=true,name-canonical=true,push=${{ needs.config.outputs.push }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Export the digest
+        if: needs.config.outputs.push == 'true'
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload the digest
+        if: needs.config.outputs.push == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Turns the per-architecture digests into a single multi-arch tag per registry.
+  merge:
+    name: Merge manifests
+    needs: [config, build]
+    if: needs.config.outputs.push == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: needs.config.outputs.dockerhub_image != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: GHCR metadata
+        id: meta-ghcr
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_IMAGE }}
+
+      - name: Push GHCR manifest list
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2046 # word splitting is the point: one -t per tag
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta-ghcr.outputs.json }}') \
+            $(printf '${{ env.GHCR_IMAGE }}@sha256:%s ' *)
+
+      - name: Docker Hub metadata
+        id: meta-dockerhub
+        if: needs.config.outputs.dockerhub_image != ''
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ needs.config.outputs.dockerhub_image }}
+
+      - name: Push Docker Hub manifest list
+        if: needs.config.outputs.dockerhub_image != ''
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2046 # word splitting is the point: one -t per tag
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta-dockerhub.outputs.json }}') \
+            $(printf '${{ needs.config.outputs.dockerhub_image }}@sha256:%s ' *)
+
+      - name: Inspect the published image
+        run: |
+          docker buildx imagetools inspect \
+            "${{ env.GHCR_IMAGE }}:${{ steps.meta-ghcr.outputs.version }}"
+
+  # Keeps the Docker Hub description in step with the README.
+  description:
+    name: Sync Docker Hub description
+    needs: [config, merge]
+    if: |
+      needs.config.outputs.dockerhub_image != '' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_REPOSITORY }}
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ./README.md

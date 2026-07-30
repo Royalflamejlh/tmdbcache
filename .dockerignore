@@ -1,0 +1,16 @@
+# Build artifacts — never needed in the image context
+target/
+
+# Runtime data
+database/
+imageCache/
+
+# VCS and tooling
+.git/
+.github/
+.claude/
+
+# Docs are not part of the build
+docs/
+README.md
+LICENSE

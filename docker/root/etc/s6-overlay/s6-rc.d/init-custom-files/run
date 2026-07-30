@@ -1,0 +1,29 @@
+#!/command/with-contenv bash
+# Runs operator-supplied init scripts before the service starts.
+#
+# Mount scripts at /custom-cont-init.d to extend the container without
+# rebuilding it — the same escape hatch LinuxServer.io images provide.
+
+CUSTOM_DIR="/custom-cont-init.d"
+
+if [[ ! -d ${CUSTOM_DIR} ]]; then
+    exit 0
+fi
+
+# A root-owned script directory is the expected case; warn if it is writable by
+# the service user, since anything in here runs as root.
+if [[ $(stat -c %U "${CUSTOM_DIR}") != "root" ]]; then
+    echo "WARNING: ${CUSTOM_DIR} is not owned by root."
+    echo "WARNING: scripts there run as root — only mount files you trust."
+fi
+
+shopt -s nullglob
+for script in "${CUSTOM_DIR}"/*; do
+    [[ -f ${script} ]] || continue
+    if [[ ! -x ${script} ]]; then
+        echo "Skipping ${script}: not executable"
+        continue
+    fi
+    echo "Running custom init script: ${script}"
+    /bin/bash "${script}"
+done

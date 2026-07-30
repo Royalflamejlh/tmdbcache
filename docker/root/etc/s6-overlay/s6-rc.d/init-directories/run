@@ -1,0 +1,27 @@
+#!/command/with-contenv bash
+# Creates the data directories and hands them to `abc`.
+#
+# Runs after init-adduser so `abc` already carries the operator's uid/gid.
+
+DATA_DIRS=(
+    "${MOVIEDB_DATABASE_PATH:-/database}"
+    "${MOVIEDB_IMAGE_CACHE_PATH:-/imageCache}"
+    "${MOVIEDB_IMAGE_CACHE_PATH:-/imageCache}/wallpapers"
+)
+
+for dir in "${DATA_DIRS[@]}"; do
+    if [[ ! -d ${dir} ]]; then
+        mkdir -p "${dir}" || echo "WARNING: could not create ${dir}"
+    fi
+done
+
+# Recursive chown on a large image cache is slow, so only descend when the top
+# level is not already owned correctly. A freshly mounted volume gets fixed; a
+# cache with 40k posters is left alone on every subsequent boot.
+for dir in "${DATA_DIRS[@]}"; do
+    [[ -d ${dir} ]] || continue
+    if [[ $(stat -c %u "${dir}") != "$(id -u abc)" ]]; then
+        echo "Fixing ownership of ${dir} (this can take a moment on first run)"
+        lsiown -R abc:abc "${dir}"
+    fi
+done

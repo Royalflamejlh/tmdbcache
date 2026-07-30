@@ -1,0 +1,27 @@
+---
+services:
+  tmdbcache:
+    image: ghcr.io/royalflamejlh/tmdbcache:latest
+    # Swap the image line for this to build from a checkout:
+    # build: .
+    container_name: tmdbcache
+    environment:
+      # Required. A TMDB v3 API key or a v4 read access token both work.
+      - MOVIEDB_TMDB_APIKEY=${MOVIEDB_TMDB_APIKEY:?set MOVIEDB_TMDB_APIKEY}
+      # Required by the original; auth is not implemented here, so keep it false.
+      - MOVIEDB_KEYCLOAK_ENABLED=false
+      # The container moves its own user onto these ids, so bind mounts just work.
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      # Which region's certifications and streaming providers to show.
+      - MOVIEDB_TMDB_REGION=US
+      - MOVIEDB_TMDB_LANGUAGE=en-US
+    volumes:
+      - ./database:/database
+      - ./imageCache:/imageCache
+      # Drop executable scripts here to run them as root before startup.
+      # - ./custom-cont-init.d:/custom-cont-init.d:ro
+    ports:
+      - "8081:8081"
+    restart: unless-stopped

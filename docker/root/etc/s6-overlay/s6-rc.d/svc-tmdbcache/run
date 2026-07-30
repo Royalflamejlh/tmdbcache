@@ -1,0 +1,14 @@
+#!/command/with-contenv bash
+# The supervised server process.
+#
+# s6 restarts this if it exits, so a crash does not take the container down.
+
+if [[ ${UMASK} =~ ^[0-7]{3,4}$ ]]; then
+    umask "${UMASK}"
+elif [[ -n ${UMASK} ]]; then
+    echo "WARNING: UMASK '${UMASK}' is not a valid octal mask; keeping the default"
+fi
+
+# `exec` so signals reach the server directly and s6 supervises the real process
+# rather than this shell.
+exec s6-setuidgid abc /usr/local/bin/tmdbcache

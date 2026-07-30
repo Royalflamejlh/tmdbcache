@@ -1,0 +1,8 @@
+/target
+
+# Runtime data, created on first start
+/database/
+/imageCache/
+
+# Local agent/editor settings
+/.claude/
