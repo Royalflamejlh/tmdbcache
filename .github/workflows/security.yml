@@ -33,7 +33,7 @@ jobs:
       # Loaded into the local daemon rather than pushed; this is amd64 only,
       # which is enough since both architectures share the same base packages.
       - name: Build the image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
