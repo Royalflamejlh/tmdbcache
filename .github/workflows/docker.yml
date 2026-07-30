@@ -33,7 +33,11 @@ jobs:
     outputs:
       push: ${{ steps.resolve.outputs.push }}
       ghcr_image: ${{ steps.resolve.outputs.ghcr_image }}
-      dockerhub_image: ${{ steps.resolve.outputs.dockerhub_image }}
+      # A boolean, deliberately. Job outputs are dropped when their value
+      # contains a secret, and the Docker Hub image name embeds the username
+      # that is also stored as DOCKERHUB_USERNAME. Jobs that need the name read
+      # vars.DOCKERHUB_REPOSITORY directly instead.
+      dockerhub_enabled: ${{ steps.resolve.outputs.dockerhub_enabled }}
     steps:
       - name: Resolve push targets
         id: resolve
@@ -56,11 +60,11 @@ jobs:
             push=true
           fi
 
-          dockerhub_image=""
+          dockerhub_enabled=false
           if [[ -n "${DOCKERHUB_REPOSITORY}" \
                 && "${HAS_DOCKERHUB_TOKEN}" == "true" \
                 && "${HAS_DOCKERHUB_USER}" == "true" ]]; then
-            dockerhub_image="docker.io/${DOCKERHUB_REPOSITORY}"
+            dockerhub_enabled=true
           else
             echo "::notice::Docker Hub not configured; publishing to GHCR only." \
                  "Set the DOCKERHUB_REPOSITORY variable plus DOCKERHUB_USERNAME" \
@@ -70,12 +74,12 @@ jobs:
           {
             echo "push=${push}"
             echo "ghcr_image=${ghcr_image}"
-            echo "dockerhub_image=${dockerhub_image}"
+            echo "dockerhub_enabled=${dockerhub_enabled}"
           } >> "$GITHUB_OUTPUT"
 
           echo "Push: ${push}"
           echo "GHCR: ${ghcr_image}"
-          echo "Docker Hub: ${dockerhub_image:-(not configured)}"
+          echo "Docker Hub enabled: ${dockerhub_enabled}"
 
   # Each architecture is built on a runner of that architecture. Emulating arm64
   # under QEMU turns a ~3 minute Rust build into a ~40 minute one, so native
@@ -181,7 +185,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: needs.config.outputs.dockerhub_image != ''
+        if: needs.config.outputs.dockerhub_enabled == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -205,14 +209,14 @@ jobs:
 
       - name: Docker Hub metadata
         id: meta-dockerhub
-        if: needs.config.outputs.dockerhub_image != ''
+        if: needs.config.outputs.dockerhub_enabled == 'true'
         uses: docker/metadata-action@v5
         with:
-          images: ${{ needs.config.outputs.dockerhub_image }}
+          images: docker.io/${{ vars.DOCKERHUB_REPOSITORY }}
           tags: ${{ env.TAG_RULES }}
 
       - name: Push Docker Hub manifest list
-        if: needs.config.outputs.dockerhub_image != ''
+        if: needs.config.outputs.dockerhub_enabled == 'true'
         working-directory: /tmp/digests
         run: |
           set -euo pipefail
@@ -231,7 +235,7 @@ jobs:
     name: Sync Docker Hub description
     needs: [config, merge]
     if: |
-      needs.config.outputs.dockerhub_image != '' &&
+      needs.config.outputs.dockerhub_enabled == 'true' &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     steps:
