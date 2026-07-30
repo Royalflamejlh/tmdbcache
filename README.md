@@ -261,6 +261,10 @@ Publishing to GHCR needs no setup. Docker Hub is skipped unless these are set:
 | Secret | `DOCKERHUB_USERNAME` | `youruser` |
 | Secret | `DOCKERHUB_TOKEN` | an access token with Read & Write |
 
+Pushing images only needs Read & Write. Syncing this README to the Docker Hub
+repository description additionally needs a token with admin scope; without it that
+one step is skipped and the rest of the publish still succeeds.
+
 ## Roadmap
 
 Not built yet, roughly in the order I'd get to them.

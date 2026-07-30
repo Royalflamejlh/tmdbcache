@@ -225,14 +225,24 @@ jobs:
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta-dockerhub.outputs.json }}') \
             $(printf '${{ needs.config.outputs.ghcr_image }}@sha256:%s ' *)
 
-      - name: Inspect the published image
+      - name: Inspect the published images
         run: |
+          set -euo pipefail
           docker buildx imagetools inspect \
             "${{ needs.config.outputs.ghcr_image }}:${{ steps.meta-ghcr.outputs.version }}"
+          if [[ "${{ needs.config.outputs.dockerhub_enabled }}" == "true" ]]; then
+            docker buildx imagetools inspect \
+              "docker.io/${{ vars.DOCKERHUB_REPOSITORY }}:${{ steps.meta-dockerhub.outputs.version }}"
+          fi
 
   # Keeps the Docker Hub description in step with the README.
+  #
+  # Editing a repository description needs a token with admin scope, which is
+  # more than pushing an image requires. If the token cannot do it the sync is
+  # skipped rather than failing a build that otherwise published fine.
   description:
     name: Sync Docker Hub description
+    continue-on-error: true
     needs: [config, merge]
     if: |
       needs.config.outputs.dockerhub_enabled == 'true' &&
@@ -246,5 +256,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ vars.DOCKERHUB_REPOSITORY }}
-          short-description: ${{ github.event.repository.description }}
+          # Docker Hub caps this at 100 bytes.
+          short-description: "Self-hosted TMDB-backed video library, a Rust rewrite of MovieDB"
           readme-filepath: ./README.md
